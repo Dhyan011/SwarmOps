@@ -1,0 +1,14 @@
+fastapi[standard]
+pydantic
+pydantic-settings
+google-genai
+python-dotenv
+pytest
+pytest-asyncio
+pyautogen==0.2.35
+python-socketio
+chromadb
+playwright
+apscheduler
+httpx
+sqlalchemy

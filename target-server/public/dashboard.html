@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Target Server Dashboard</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #0f172a; color: white; padding: 2rem; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+        .card { background: #1e293b; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid #334155; }
+        .value { font-size: 2.5rem; font-weight: bold; margin-top: 0.5rem; }
+        .label { color: #94a3b8; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .status-up { color: #22c55e; }
+        .status-down { color: #ef4444; }
+        .status-warn { color: #eab308; }
+    </style>
+</head>
+<body>
+    <h1>Production Dashboard</h1>
+    <div class="grid">
+        <div class="card">
+            <div class="label">CPU Usage</div>
+            <div class="value" id="cpu">--%</div>
+        </div>
+        <div class="card">
+            <div class="label">Memory Usage</div>
+            <div class="value" id="memory">--%</div>
+        </div>
+        <div class="card">
+            <div class="label">Response Time</div>
+            <div class="value" id="response">--ms</div>
+        </div>
+        <div class="card">
+            <div class="label">Error Rate</div>
+            <div class="value" id="error">--%</div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchMetrics() {
+            try {
+                const res = await fetch('/metrics');
+                if (!res.ok) throw new Error('Failed to fetch');
+                const data = await res.json();
+                
+                const updateValue = (id, val, unit, threshold) => {
+                    const el = document.getElementById(id);
+                    el.textContent = `${val.toFixed(1)}${unit}`;
+                    if (val > threshold.high) el.className = 'value status-down';
+                    else if (val > threshold.warn) el.className = 'value status-warn';
+                    else el.className = 'value status-up';
+                };
+
+                updateValue('cpu', data.cpu_percentage, '%', {warn: 70, high: 90});
+                updateValue('memory', data.memory_percentage, '%', {warn: 75, high: 90});
+                updateValue('response', data.response_time_ms, 'ms', {warn: 300, high: 1000});
+                updateValue('error', data.error_rate_percentage, '%', {warn: 1, high: 5});
+            } catch (e) {
+                document.querySelectorAll('.value').forEach(el => {
+                    el.textContent = 'ERR';
+                    el.className = 'value status-down';
+                });
+            }
+        }
+
+        setInterval(fetchMetrics, 1000);
+        fetchMetrics();
+    </script>
+</body>
+</html>
