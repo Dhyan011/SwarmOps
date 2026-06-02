@@ -19,6 +19,7 @@ def get_percentile(p: float, metric: str) -> str:
     """Calculates the given percentile for a specific metric."""
     try:
         response = httpx.get("http://localhost:4000/metrics", timeout=2.0)
+        response.raise_for_status()
         data = response.json()
         val = data.get("response_time_ms", 1500) if "response" in metric else data.get("cpu_percentage", 90)
         return f"Live {p}th percentile for {metric}: {val}"

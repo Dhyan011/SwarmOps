@@ -13,6 +13,11 @@ import logging
 from models.alert import AlertModel
 import uuid
 import datetime
+from pydantic import BaseModel
+
+class TargetRequest(BaseModel):
+    target_url: str
+    target_type: str # "repo" or "live"
 
 app = FastAPI(title="SwarmOps Backend", description="Orchestration engine for incident alerts using specialist agents")
 
@@ -83,6 +88,33 @@ async def process_alert(alert_payload: Dict[str, Any]):
     except ValidationError as e:
         is_investigating = False
         raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        is_investigating = False
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.other_asgi_app.post("/api/v1/analyze_target", response_model=IncidentReport)
+async def analyze_target_endpoint(req: TargetRequest):
+    """Receives a generic target URL (GitHub repo or live site) and orchestrates the SwarmOps agents to investigate it."""
+    global is_investigating
+    if is_investigating:
+        raise HTTPException(status_code=409, detail="Swarm is currently investigating another incident.")
+    
+    is_investigating = True
+    
+    alert_payload = {
+        "incident_id": f"TARGET-{datetime.datetime.utcnow().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8]}",
+        "service": req.target_url,
+        "severity": "P1",
+        "alert_type": req.target_type,
+        "alert_message": f"User requested autonomous analysis of {req.target_type} target: {req.target_url}",
+        "time_window": "now",
+        "environment": "production"
+    }
+    
+    try:
+        report = await handle_alert(alert_payload)
+        is_investigating = False
+        return report
     except Exception as e:
         is_investigating = False
         raise HTTPException(status_code=500, detail=str(e))

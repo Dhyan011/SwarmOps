@@ -12,3 +12,4 @@ playwright
 apscheduler
 httpx
 sqlalchemy
+beautifulsoup4

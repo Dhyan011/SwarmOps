@@ -7,6 +7,7 @@ def fetch_traces(trace_id: str) -> str:
     """Fetches detailed trace information for a specific distributed trace ID."""
     try:
         response = httpx.get("http://localhost:4000/metrics", timeout=2.0)
+        response.raise_for_status()
         error_rate = response.json().get("error_rate_percentage", 0)
         if error_rate > 5:
             return f"Trace {trace_id}: Failed at payment_gateway span. db_connection timeout. {error_rate}% of traces failing."

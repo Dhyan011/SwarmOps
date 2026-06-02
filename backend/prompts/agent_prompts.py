@@ -50,17 +50,22 @@ AGENT_CONFIGS = {
     },
     "VisualAgent": {
         "AGENT_NAME": "VisualAgent",
-        "AGENT_ROLE": "produce a base64-encoded PNG anomaly chart of the most relevant metric or log volume over time",
-        "TOOL_NAMES": "render_timeseries, render_heatmap"
+        "AGENT_ROLE": "produce a base64-encoded PNG anomaly chart or scan live websites by fetching HTML and statuses",
+        "TOOL_NAMES": "render_timeseries, render_heatmap, analyze_live_website"
     },
     "ConfigAgent": {
         "AGENT_NAME": "ConfigAgent",
-        "AGENT_ROLE": "detect recent deployments, config changes, or environment variable drift that correlate with the incident time window",
-        "TOOL_NAMES": "read_config, diff_config"
+        "AGENT_ROLE": "detect recent deployments, config changes, or analyze generic public GitHub repositories",
+        "TOOL_NAMES": "read_config, diff_config, analyze_github_repo"
     },
     "KBAgent": {
         "AGENT_NAME": "KBAgent",
         "AGENT_ROLE": "find matching past incidents, retrieve known runbooks and proven fixes from the knowledge base",
         "TOOL_NAMES": "search_history, get_runbook"
+    },
+    "SecurityAgent": {
+        "AGENT_NAME": "SecurityAgent",
+        "AGENT_ROLE": "scan live websites for missing security headers, or scan GitHub repositories for exposed secrets and dependencies",
+        "TOOL_NAMES": "scan_vulnerabilities"
     }
 }

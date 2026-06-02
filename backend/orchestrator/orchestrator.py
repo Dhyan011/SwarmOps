@@ -11,6 +11,7 @@ from agents.trace_agent import TraceAgent
 from agents.visual_agent import VisualAgent
 from agents.config_agent import ConfigAgent
 from agents.kb_agent import KBAgent
+from agents.security_agent import SecurityAgent
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +30,19 @@ async def handle_alert(raw_alert: dict) -> IncidentReport:
         TraceAgent(),
         VisualAgent(),
         ConfigAgent(),
-        KBAgent()
+        KBAgent(),
+        SecurityAgent()
     ]
 
-    # Stage 3: Parallel execution
-    # BaseAgent.run is an async wrapper around a_initiate_chat
-    tasks = [agent.run(alert) for agent in agents]
-    findings = await asyncio.gather(*tasks, return_exceptions=True)
+    # Stage 3: Sequential execution (to avoid OpenRouter rate limits on free models)
+    findings = []
+    for agent in agents:
+        try:
+            finding = await agent.run(alert)
+            findings.append(finding)
+        except Exception as e:
+            logger.error(f"Agent {agent.__class__.__name__} failed: {e}")
+            findings.append({"error": str(e)})
 
     # Stage 4 & 5: Collect findings and Synthesise
     report = await synthesise_findings(alert, findings)
