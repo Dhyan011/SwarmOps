@@ -1,0 +1,26 @@
+[
+  {
+    "agent": "MetricAgent",
+    "status": "success",
+    "anomaly_detected": true,
+    "anomaly_timestamp": "2024-06-12T14:30:00Z",
+    "affected_service": "payment_gateway",
+    "signal_type": "latency regression",
+    "signal_detail": "99th percentile latency spiked to 6.2s",
+    "evidence": ["p99 latency > 5s for 3 consecutive minutes"],
+    "confidence": "high",
+    "recommended_action": "Check upstream dependencies"
+  },
+  {
+    "agent": "LogAgent",
+    "status": "success",
+    "anomaly_detected": true,
+    "anomaly_timestamp": "2024-06-12T14:31:00Z",
+    "affected_service": "payment_gateway",
+    "signal_type": "connection timeout",
+    "signal_detail": "Multiple database connection timeouts logged",
+    "evidence": ["[ERROR] DB timeout after 10000ms"],
+    "confidence": "medium",
+    "recommended_action": "Verify database pool size"
+  }
+]

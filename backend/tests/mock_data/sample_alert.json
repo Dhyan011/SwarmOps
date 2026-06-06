@@ -1,0 +1,10 @@
+{
+  "incident_id": "INC-20240612-0047",
+  "service": "payment_gateway",
+  "severity": "P1",
+  "alert_type": "latency_spike",
+  "alert_time": "2024-06-12T14:32:00Z",
+  "time_window": "15m",
+  "environment": "production",
+  "alert_message": "Payment processing latency exceeded 5 seconds on average."
+}
