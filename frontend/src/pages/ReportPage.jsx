@@ -82,7 +82,7 @@ export default function ReportPage() {
   if (!incident) {
     return (
       <div className="text-center py-20">
-        <p className="text-slate-600 font-semibold font-medium">Report not found.</p>
+        <p className="text-slate-300 font-semibold font-medium">Report not found.</p>
         <button
           onClick={() => navigate("/")}
           className="mt-4 text-xl text-blue-400 hover:text-blue-300"
@@ -156,16 +156,16 @@ export default function ReportPage() {
 
       {/* Incident Summary */}
       <motion.div variants={itemVariants} className="glass-card p-6">
-        <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-600 font-semibold font-medium mb-4">
+        <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-300 font-semibold font-medium mb-4">
           Incident Summary
         </h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <span className="text-[11px] text-slate-600 font-semibold uppercase tracking-wider">Service</span>
+            <span className="text-[11px] text-slate-300 font-semibold uppercase tracking-wider">Service</span>
             <p className="text-xl text-slate-900 mt-1">{incident.service || "N/A"}</p>
           </div>
           <div>
-            <span className="text-[11px] text-slate-600 font-semibold uppercase tracking-wider">Severity</span>
+            <span className="text-[11px] text-slate-300 font-semibold uppercase tracking-wider">Severity</span>
             <div className="mt-1">
               <StatusBadge variant={severityVariant[incident.severity] || "neutral"}>
                 {incident.severity || "N/A"}
@@ -173,7 +173,7 @@ export default function ReportPage() {
             </div>
           </div>
           <div>
-            <span className="text-[11px] text-slate-600 font-semibold uppercase tracking-wider">Status</span>
+            <span className="text-[11px] text-slate-300 font-semibold uppercase tracking-wider">Status</span>
             <div className="mt-1">
               <StatusBadge variant={incident.status === "resolved" ? "success" : "amber"} dot>
                 {incident.status || "Unknown"}
@@ -181,13 +181,13 @@ export default function ReportPage() {
             </div>
           </div>
           <div>
-            <span className="text-[11px] text-slate-600 font-semibold uppercase tracking-wider">Created</span>
+            <span className="text-[11px] text-slate-300 font-semibold uppercase tracking-wider">Created</span>
             <p className="text-xl text-slate-900 mt-1">{formatDate(incident.created_at)}</p>
           </div>
         </div>
         {incident.description && (
           <div className="mt-4 pt-4 border-t border-white/[0.04]">
-            <span className="text-[11px] text-slate-600 font-semibold uppercase tracking-wider">Description</span>
+            <span className="text-[11px] text-slate-300 font-semibold uppercase tracking-wider">Description</span>
             <p className="text-xl text-slate-800 font-medium mt-1 leading-relaxed">{incident.description}</p>
           </div>
         )}
@@ -196,7 +196,7 @@ export default function ReportPage() {
       {/* Timeline */}
       {incident.events && incident.events.length > 0 && (
         <motion.div variants={itemVariants} className="glass-card p-6">
-          <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-600 font-semibold font-medium mb-4">
+          <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-300 font-semibold font-medium mb-4">
             Event Timeline
           </h2>
           <div className="space-y-3">
@@ -210,7 +210,7 @@ export default function ReportPage() {
                   }`} />
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 text-xl text-slate-600 font-semibold font-medium">
+                  <div className="flex items-center gap-2 text-xl text-slate-300 font-semibold font-medium">
                     <span className="font-semibold text-slate-700 uppercase tracking-wider">
                       {event.agent || "System"}
                     </span>
@@ -228,7 +228,7 @@ export default function ReportPage() {
       {/* Agent Findings */}
       {(incident.agent_findings && incident.agent_findings.length > 0) && (
         <motion.div variants={itemVariants} className="glass-card p-6">
-          <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-600 font-semibold font-medium mb-4">
+          <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-300 font-semibold font-medium mb-4">
             Agent Findings
           </h2>
           <div className="space-y-5">
@@ -243,7 +243,7 @@ export default function ReportPage() {
                 {finding.metadata && Object.keys(finding.metadata).length > 0 && (
                   <ul className="mt-2 space-y-1">
                     {Object.entries(finding.metadata).map(([key, val], i) => (
-                      <li key={i} className="flex items-start gap-2 text-[13px] text-slate-600 font-semibold font-medium">
+                      <li key={i} className="flex items-start gap-2 text-[13px] text-slate-300 font-semibold font-medium">
                         <span className="text-blue-500 shrink-0">→</span>
                         <span className="font-semibold">{key}:</span> {typeof val === 'object' ? JSON.stringify(val) : String(val)}
                       </li>
@@ -259,13 +259,13 @@ export default function ReportPage() {
       {/* Root Cause + Confidence */}
       {rootCause && (
         <motion.div variants={itemVariants} className="glass-card p-6">
-          <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-600 font-semibold font-medium mb-4">
+          <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-300 font-semibold font-medium mb-4">
             Root Cause
           </h2>
           <p className="text-xl text-slate-900 leading-relaxed mb-4 whitespace-pre-wrap">{rootCause}</p>
           {confidence > 0 && (
             <div>
-              <span className="text-[11px] text-slate-600 font-semibold font-medium uppercase tracking-wider font-medium">
+              <span className="text-[11px] text-slate-300 font-semibold font-medium uppercase tracking-wider font-medium">
                 Confidence
               </span>
               <div className="mt-2 max-w-sm">
@@ -279,7 +279,7 @@ export default function ReportPage() {
       {/* Proposed Fix */}
       {patch && (
         <motion.div variants={itemVariants}>
-          <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-600 font-semibold font-medium mb-3 px-1">
+          <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-300 font-semibold font-medium mb-3 px-1">
             Proposed Fix
           </h2>
           <CodeDiff patch={patch} />
@@ -289,7 +289,7 @@ export default function ReportPage() {
       {/* Validation */}
       {validationResult && (
         <motion.div variants={itemVariants} className="glass-card p-6">
-          <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-600 font-semibold font-medium mb-4">
+          <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-300 font-semibold font-medium mb-4">
             Validation Result
           </h2>
           <p className="text-xl text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">

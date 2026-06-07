@@ -84,7 +84,7 @@ export default function LandingPage() {
         <motion.div variants={itemVariants} className="flex items-center gap-4 flex-wrap justify-center">
           <button 
             onClick={() => navigate("/dashboard")}
-            className="group relative inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-amber-500 text-black font-bold font-bold text-lg overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(37,99,235,0.4)]"
+            className="group relative inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-amber-500 text-white font-bold font-bold text-lg overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(37,99,235,0.4)]"
           >
             <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
             <HiOutlineRocketLaunch className="w-6 h-6 relative z-10" />

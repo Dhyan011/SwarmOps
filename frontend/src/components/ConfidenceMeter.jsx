@@ -19,7 +19,7 @@ export default function ConfidenceMeter({ value = 0, size = "default" }) {
           style={{ width: `${clampedValue}%` }}
         />
       </div>
-      <span className={`text-sm font-semibold tabular-nums ${color.text} min-w-[3rem] text-right`}>
+      <span className={`text-base font-semibold tabular-nums ${color.text} min-w-[3rem] text-right`}>
         {clampedValue}%
       </span>
     </div>

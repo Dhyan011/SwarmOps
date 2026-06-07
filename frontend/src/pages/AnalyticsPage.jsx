@@ -143,7 +143,7 @@ export default function AnalyticsPage() {
       <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Resolution Time Chart */}
         <div className="glass-card-static p-6">
-          <h3 className="text-xl font-semibold uppercase tracking-wider text-slate-600 font-semibold font-medium mb-6">
+          <h3 className="text-xl font-semibold uppercase tracking-wider text-slate-300 font-semibold font-medium mb-6">
             Resolution Time (min)
           </h3>
           <div className="h-64">
@@ -177,7 +177,7 @@ export default function AnalyticsPage() {
 
         {/* Severity Distribution */}
         <div className="glass-card-static p-6">
-          <h3 className="text-xl font-semibold uppercase tracking-wider text-slate-600 font-semibold font-medium mb-6">
+          <h3 className="text-xl font-semibold uppercase tracking-wider text-slate-300 font-semibold font-medium mb-6">
             Incidents by Severity
           </h3>
           <div className="h-64">
@@ -210,7 +210,7 @@ export default function AnalyticsPage() {
       {/* Agent Performance Table */}
       <motion.div variants={itemVariants} className="glass-card-static overflow-hidden">
         <div className="px-6 py-4 border-b border-black/[0.1]">
-          <h3 className="text-xl font-semibold uppercase tracking-wider text-slate-600 font-semibold font-medium">
+          <h3 className="text-xl font-semibold uppercase tracking-wider text-slate-300 font-semibold font-medium">
             Agent Performance
           </h3>
         </div>
@@ -218,16 +218,16 @@ export default function AnalyticsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/[0.04]">
-                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-600 font-semibold font-medium">
+                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-300 font-semibold font-medium">
                   Agent
                 </th>
-                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-600 font-semibold font-medium">
+                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-300 font-semibold font-medium">
                   Avg Duration
                 </th>
-                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-600 font-semibold font-medium">
+                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-300 font-semibold font-medium">
                   Success Rate
                 </th>
-                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-600 font-semibold font-medium">
+                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-300 font-semibold font-medium">
                   Status
                 </th>
               </tr>

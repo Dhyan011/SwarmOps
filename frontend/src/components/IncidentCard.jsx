@@ -62,13 +62,13 @@ export default function IncidentCard({ incident, delay = 0 }) {
       {/* Main content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm font-mono text-blue-400/80">
+          <span className="text-base font-mono text-blue-400/80">
             #{incident_id?.slice(0, 8)}
           </span>
-          <span className="text-slate-600">·</span>
-          <span className="text-sm text-slate-600 font-medium">{service}</span>
+          <span className="text-slate-300">·</span>
+          <span className="text-base text-slate-300 font-medium">{service}</span>
         </div>
-        <p className="text-sm text-black truncate leading-relaxed">
+        <p className="text-base text-white truncate leading-relaxed">
           {description}
         </p>
       </div>
@@ -80,12 +80,12 @@ export default function IncidentCard({ incident, delay = 0 }) {
             {status}
           </StatusBadge>
           {created_at && (
-            <p className="text-[11px] text-slate-600 mt-1.5">
+            <p className="text-[11px] text-slate-300 mt-1.5">
               {timeAgo(created_at)}
             </p>
           )}
         </div>
-        <HiOutlineChevronRight className="w-4 h-4 text-slate-600 group-hover:text-blue-400 transition-colors duration-200" />
+        <HiOutlineChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-400 transition-colors duration-200" />
       </div>
     </div>
   );

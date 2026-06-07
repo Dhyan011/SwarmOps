@@ -15,7 +15,7 @@ export default function CodeDiff({ patch = "" }) {
   if (!patch) {
     return (
       <div className="glass-card-static p-6 text-center">
-        <p className="text-sm text-slate-600 font-medium">No code diff available</p>
+        <p className="text-base text-slate-300 font-medium">No code diff available</p>
       </div>
     );
   }
@@ -28,7 +28,7 @@ export default function CodeDiff({ patch = "" }) {
           <span className="w-3 h-3 rounded-full bg-amber-500/60" />
           <span className="w-3 h-3 rounded-full bg-emerald-500/60" />
         </div>
-        <span className="text-sm text-slate-600 font-medium ml-2 font-medium">Proposed Fix</span>
+        <span className="text-base text-slate-300 font-medium ml-2 font-medium">Proposed Fix</span>
       </div>
       <div className="overflow-x-auto">
         <pre className="text-[13px] leading-6 font-mono p-0 m-0">
@@ -43,7 +43,7 @@ export default function CodeDiff({ patch = "" }) {
                 ${line.type === "neutral" ? "diff-neutral" : ""}
               `}
             >
-              <span className="w-10 text-right pr-4 text-slate-600 select-none shrink-0 text-sm leading-6">
+              <span className="w-10 text-right pr-4 text-slate-300 select-none shrink-0 text-base leading-6">
                 {line.number}
               </span>
               <span
@@ -51,7 +51,7 @@ export default function CodeDiff({ patch = "" }) {
                   flex-1 whitespace-pre
                   ${line.type === "add" ? "text-emerald-300" : ""}
                   ${line.type === "remove" ? "text-red-300" : ""}
-                  ${line.type === "neutral" ? "text-black text-lg font-semibold" : ""}
+                  ${line.type === "neutral" ? "text-white text-lg font-semibold" : ""}
                 `}
               >
                 {line.text}
