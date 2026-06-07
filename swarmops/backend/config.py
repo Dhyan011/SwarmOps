@@ -11,9 +11,11 @@ from dotenv import load_dotenv
 _env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=_env_path)
 
-# ── OpenRouter LLM Provider ──
+# ── OpenRouter & GitHub Configuration ──
 OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+LLM_MODEL: str = os.getenv("LLM_MODEL", "poolside/laguna-m.1:free")
+GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", "")
 
 # ── Azure Log Analytics ──
 AZURE_LOG_ANALYTICS_WORKSPACE_ID: str = os.getenv("AZURE_LOG_ANALYTICS_WORKSPACE_ID", "")

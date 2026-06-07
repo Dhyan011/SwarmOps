@@ -1,10 +1,5 @@
 fastapi
 uvicorn[standard]
-pyautogen
 openai
-azure-monitor-query
-azure-identity
-azure-search-documents
 python-dotenv
-aiohttp
-Pillow
+python-socketio

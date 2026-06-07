@@ -1,0 +1,24 @@
+services:
+  # Backend Service (Python FastAPI)
+  - type: web
+    name: swarmops-backend
+    env: docker
+    dockerContext: swarmops/backend
+    dockerfilePath: swarmops/backend/Dockerfile
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false # User must set this in the Render dashboard manually for security
+    
+  # Frontend Service (Vite React)
+  - type: web
+    name: swarmops-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    rootDir: swarmops/frontend
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: swarmops-backend
+          envVarKey: RENDER_EXTERNAL_URL
