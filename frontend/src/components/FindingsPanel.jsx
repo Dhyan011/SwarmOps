@@ -58,7 +58,7 @@ function FindingSection({ finding, isLatest }) {
               : "text-slate-600"
           }`}
         />
-        <span className="flex-1 text-sm font-medium text-white">
+        <span className="flex-1 text-sm font-medium text-black font-bold">
           {formatAgentName(finding.agent)}
         </span>
         <StatusBadge variant={config.variant}>{config.label}</StatusBadge>
@@ -79,7 +79,7 @@ function FindingSection({ finding, isLatest }) {
                 <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-600 font-medium mb-2">
                   Findings
                 </h4>
-                <p className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap">
+                <p className="text-[13px] text-black leading-relaxed whitespace-pre-wrap">
                   {finding.findings}
                 </p>
               </div>
@@ -93,7 +93,7 @@ function FindingSection({ finding, isLatest }) {
                 </h4>
                 <ul className="space-y-1.5">
                   {finding.recommendations.map((rec, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[13px] text-slate-100 text-lg font-semibold">
+                    <li key={i} className="flex items-start gap-2 text-[13px] text-black text-lg font-semibold">
                       <span className="text-blue-500 mt-0.5 shrink-0">→</span>
                       <span className="leading-relaxed">{rec}</span>
                     </li>

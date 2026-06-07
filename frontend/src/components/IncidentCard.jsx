@@ -68,7 +68,7 @@ export default function IncidentCard({ incident, delay = 0 }) {
           <span className="text-slate-600">·</span>
           <span className="text-sm text-slate-600 font-medium">{service}</span>
         </div>
-        <p className="text-sm text-slate-300 truncate leading-relaxed">
+        <p className="text-sm text-black truncate leading-relaxed">
           {description}
         </p>
       </div>

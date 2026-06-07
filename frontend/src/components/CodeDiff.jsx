@@ -51,7 +51,7 @@ export default function CodeDiff({ patch = "" }) {
                   flex-1 whitespace-pre
                   ${line.type === "add" ? "text-emerald-300" : ""}
                   ${line.type === "remove" ? "text-red-300" : ""}
-                  ${line.type === "neutral" ? "text-slate-100 text-lg font-semibold" : ""}
+                  ${line.type === "neutral" ? "text-black text-lg font-semibold" : ""}
                 `}
               >
                 {line.text}

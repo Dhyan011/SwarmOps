@@ -21,7 +21,7 @@ export default function MetricCard({ label, value, suffix = "", trend = null, tr
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-start justify-between mb-4">
-        <p className="text-[13px] font-medium text-slate-100 text-lg font-semibold uppercase tracking-wider">
+        <p className="text-[13px] font-medium text-black text-lg font-semibold uppercase tracking-wider">
           {label}
         </p>
         {Icon && (
@@ -31,7 +31,7 @@ export default function MetricCard({ label, value, suffix = "", trend = null, tr
         )}
       </div>
       <div className="flex items-end gap-2">
-        <span className="text-3xl font-bold tracking-tight text-white">
+        <span className="text-3xl font-bold tracking-tight text-black font-bold">
           {value}
         </span>
         {suffix && (
