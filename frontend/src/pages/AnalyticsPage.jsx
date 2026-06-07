@@ -37,7 +37,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
       <div className="glass-card-static px-3 py-2 text-xl">
-        <p className="text-black font-bold mb-1">{label}</p>
+        <p className="text-white font-bold mb-1">{label}</p>
         <p className="text-blue-400 font-semibold">
           {payload[0].value}
           {payload[0].dataKey === "time" ? " min" : " incidents"}
@@ -95,7 +95,7 @@ export default function AnalyticsPage() {
         <h1 className="text-3xl font-bold tracking-tight mb-2">
           <span className="gradient-text">Analytics</span>
         </h1>
-        <p className="text-xl text-black font-bold">
+        <p className="text-xl text-white font-bold">
           Performance insights and historical incident data.
         </p>
       </motion.div>
@@ -143,21 +143,21 @@ export default function AnalyticsPage() {
       <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Resolution Time Chart */}
         <div className="glass-card-static p-6">
-          <h3 className="text-xl font-semibold uppercase tracking-wider text-black font-bold font-semibold font-medium mb-6">
+          <h3 className="text-xl font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium mb-6">
             Resolution Time (min)
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={resolutionData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                 <XAxis
                   dataKey="name"
-                  tick={{ fill: "#000000", fontWeight: "bold", fontSize: 11 }}
+                  tick={{ fill: "#94a3b8", fontSize: 11 }}
                   axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: "#000000", fontWeight: "bold", fontSize: 11 }}
+                  tick={{ fill: "#94a3b8", fontSize: 11 }}
                   axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
                   tickLine={false}
                 />
@@ -177,21 +177,21 @@ export default function AnalyticsPage() {
 
         {/* Severity Distribution */}
         <div className="glass-card-static p-6">
-          <h3 className="text-xl font-semibold uppercase tracking-wider text-black font-bold font-semibold font-medium mb-6">
+          <h3 className="text-xl font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium mb-6">
             Incidents by Severity
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={severityData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                 <XAxis
                   dataKey="name"
-                  tick={{ fill: "#000000", fontWeight: "bold", fontSize: 11 }}
+                  tick={{ fill: "#94a3b8", fontSize: 11 }}
                   axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: "#000000", fontWeight: "bold", fontSize: 11 }}
+                  tick={{ fill: "#94a3b8", fontSize: 11 }}
                   axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
                   tickLine={false}
                 />
@@ -210,7 +210,7 @@ export default function AnalyticsPage() {
       {/* Agent Performance Table */}
       <motion.div variants={itemVariants} className="glass-card-static overflow-hidden">
         <div className="px-6 py-4 border-b border-black/[0.1]">
-          <h3 className="text-xl font-semibold uppercase tracking-wider text-black font-bold font-semibold font-medium">
+          <h3 className="text-xl font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium">
             Agent Performance
           </h3>
         </div>
@@ -218,16 +218,16 @@ export default function AnalyticsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/[0.04]">
-                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-black font-bold font-semibold font-medium">
+                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium">
                   Agent
                 </th>
-                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-black font-bold font-semibold font-medium">
+                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium">
                   Avg Duration
                 </th>
-                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-black font-bold font-semibold font-medium">
+                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium">
                   Success Rate
                 </th>
-                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-black font-bold font-semibold font-medium">
+                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium">
                   Status
                 </th>
               </tr>
@@ -238,13 +238,13 @@ export default function AnalyticsPage() {
                   key={agent.name}
                   className="border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02] transition-colors duration-150"
                 >
-                  <td className="px-6 py-3.5 text-xl text-black font-extrabold font-medium">
+                  <td className="px-6 py-3.5 text-xl text-white font-medium">
                     {agent.name}
                   </td>
-                  <td className="px-6 py-3.5 text-xl text-black font-bold tabular-nums font-mono">
+                  <td className="px-6 py-3.5 text-xl text-white font-bold tabular-nums font-mono">
                     {agent.avgDuration}
                   </td>
-                  <td className="px-6 py-3.5 text-xl text-black font-bold tabular-nums font-mono">
+                  <td className="px-6 py-3.5 text-xl text-white font-bold tabular-nums font-mono">
                     {agent.successRate}
                   </td>
                   <td className="px-6 py-3.5">

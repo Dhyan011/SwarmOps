@@ -55,15 +55,15 @@ function FindingSection({ finding, isLatest }) {
               ? "text-blue-400"
               : finding.status === "failed"
               ? "text-red-400"
-              : "text-slate-700"
+              : "text-slate-200"
           }`}
         />
-        <span className="flex-1 text-base font-medium text-black font-bold">
+        <span className="flex-1 text-base font-medium text-white font-bold">
           {formatAgentName(finding.agent)}
         </span>
         <StatusBadge variant={config.variant}>{config.label}</StatusBadge>
         <HiOutlineChevronDown
-          className={`w-4 h-4 text-slate-700 font-medium transition-transform duration-200 ${
+          className={`w-4 h-4 text-slate-200 font-medium transition-transform duration-200 ${
             expanded ? "rotate-180" : ""
           }`}
         />
@@ -76,10 +76,10 @@ function FindingSection({ finding, isLatest }) {
             {/* Findings text */}
             {finding.findings && (
               <div className="mb-4">
-                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-700 font-medium mb-2">
+                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-200 font-medium mb-2">
                   Findings
                 </h4>
-                <p className="text-[13px] text-black leading-relaxed whitespace-pre-wrap">
+                <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap">
                   {finding.findings}
                 </p>
               </div>
@@ -88,12 +88,12 @@ function FindingSection({ finding, isLatest }) {
             {/* Recommendations */}
             {finding.recommendations && finding.recommendations.length > 0 && (
               <div>
-                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-700 font-medium mb-2">
+                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-200 font-medium mb-2">
                   Recommendations
                 </h4>
                 <ul className="space-y-1.5">
                   {finding.recommendations.map((rec, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[13px] text-black text-lg font-semibold">
+                    <li key={i} className="flex items-start gap-2 text-[13px] text-white text-lg font-semibold">
                       <span className="text-blue-500 mt-0.5 shrink-0">→</span>
                       <span className="leading-relaxed">{rec}</span>
                     </li>
@@ -104,13 +104,13 @@ function FindingSection({ finding, isLatest }) {
 
             {/* Empty state for running/idle */}
             {!finding.findings && finding.status === "running" && (
-              <div className="flex items-center gap-2 text-base text-slate-700 font-medium">
+              <div className="flex items-center gap-2 text-base text-slate-200 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse-dot" />
                 Agent is currently processing...
               </div>
             )}
             {!finding.findings && finding.status === "idle" && (
-              <p className="text-base text-slate-700">Waiting to start...</p>
+              <p className="text-base text-slate-200">Waiting to start...</p>
             )}
           </div>
         </div>
@@ -128,11 +128,11 @@ export default function FindingsPanel({ findings = [] }) {
 
   return (
     <div className="space-y-2">
-      <h3 className="text-base font-semibold uppercase tracking-wider text-slate-700 font-medium mb-3 px-1">
+      <h3 className="text-base font-semibold uppercase tracking-wider text-slate-200 font-medium mb-3 px-1">
         Agent Findings
       </h3>
       {findings.length === 0 ? (
-        <div className="text-base text-slate-700 py-8 text-center">
+        <div className="text-base text-slate-200 py-8 text-center">
           No findings yet — agents haven't started.
         </div>
       ) : (

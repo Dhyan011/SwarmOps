@@ -69,22 +69,22 @@ export default function LandingPage() {
       >
         <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.4] border border-black/[0.1] mb-8 backdrop-blur-md shadow-sm">
           <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse-dot" />
-          <span className="text-base font-bold text-slate-900 uppercase tracking-wider">SwarmOps Core v0.2.0 is Live</span>
+          <span className="text-base font-bold text-white uppercase tracking-wider">SwarmOps Core v0.2.0 is Live</span>
         </motion.div>
 
-        <motion.h1 variants={itemVariants} className="text-6xl md:text-8xl font-black tracking-tight mb-6 leading-tight drop-shadow-xl text-slate-900">
+        <motion.h1 variants={itemVariants} className="text-6xl md:text-8xl font-black tracking-tight mb-6 leading-tight drop-shadow-xl text-white">
           Autonomous <br />
           <span className="bg-gradient-to-r from-blue-700 to-amber-600 bg-clip-text text-transparent">Incident Response.</span>
         </motion.h1>
 
-        <motion.p variants={itemVariants} className="text-xl md:text-2xl text-slate-900 max-w-3xl mb-12 leading-relaxed drop-shadow-md font-semibold bg-white/20 px-6 py-3 rounded-2xl backdrop-blur-sm border border-white/30">
+        <motion.p variants={itemVariants} className="text-xl md:text-2xl text-white max-w-3xl mb-12 leading-relaxed drop-shadow-md font-semibold bg-white/20 px-6 py-3 rounded-2xl backdrop-blur-sm border border-white/30">
           Unleash an 8-agent AI swarm to instantly triage, investigate, trace, and patch production bugs in your codebase before your users even notice.
         </motion.p>
 
         <motion.div variants={itemVariants} className="flex items-center gap-4 flex-wrap justify-center">
           <button 
             onClick={() => navigate("/dashboard")}
-            className="group relative inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-amber-500 text-black font-bold font-bold text-lg overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(37,99,235,0.4)]"
+            className="group relative inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-amber-500 text-white font-bold font-bold text-lg overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(37,99,235,0.4)]"
           >
             <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
             <HiOutlineRocketLaunch className="w-6 h-6 relative z-10" />
@@ -92,7 +92,7 @@ export default function LandingPage() {
           </button>
           <a 
             href="#how-it-works"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white/[0.4] border border-black/[0.1] text-slate-900 font-bold text-lg hover:bg-white/[0.6] hover:border-black/[0.2] backdrop-blur-md transition-all hover:scale-105 active:scale-95 shadow-sm"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white/[0.4] border border-black/[0.1] text-white font-bold text-lg hover:bg-white/[0.6] hover:border-black/[0.2] backdrop-blur-md transition-all hover:scale-105 active:scale-95 shadow-sm"
           >
             Read the Manual
           </a>
@@ -109,7 +109,7 @@ export default function LandingPage() {
         transition={{ duration: 0.6 }}
       >
         <div className="text-center mb-16 bg-white/30 p-8 rounded-3xl backdrop-blur-md border border-white/50 inline-block mx-auto">
-          <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4 drop-shadow-sm">How The Swarm Works</h2>
+          <h2 className="text-4xl md:text-5xl font-black text-white mb-4 drop-shadow-sm">How The Swarm Works</h2>
           <p className="text-lg md:text-xl text-slate-800 font-semibold max-w-2xl mx-auto">A multi-phase, highly concurrent architecture that acts exactly like a Senior SRE team.</p>
         </div>
 
@@ -118,7 +118,7 @@ export default function LandingPage() {
             <div className="w-14 h-14 rounded-xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center mb-6 group-hover:bg-blue-600/20 transition-colors">
               <HiOutlineCpuChip className="w-7 h-7 text-blue-700" />
             </div>
-            <h3 className="text-xl font-black text-slate-900 mb-3">1. Parallel Investigation</h3>
+            <h3 className="text-xl font-black text-white mb-3">1. Parallel Investigation</h3>
             <p className="text-base text-slate-800 font-medium leading-relaxed">
               Upon incident creation, the Orchestrator spins up four specialized agents (Logs, Metrics, Trace, Security) to concurrently fetch context and analyze the target repository or environment.
             </p>
@@ -128,7 +128,7 @@ export default function LandingPage() {
             <div className="w-14 h-14 rounded-xl bg-amber-600/10 border border-amber-600/20 flex items-center justify-center mb-6 group-hover:bg-amber-600/20 transition-colors">
               <HiOutlineCodeBracket className="w-7 h-7 text-amber-700" />
             </div>
-            <h3 className="text-xl font-black text-slate-900 mb-3">2. Root Cause Synthesis</h3>
+            <h3 className="text-xl font-black text-white mb-3">2. Root Cause Synthesis</h3>
             <p className="text-base text-slate-800 font-medium leading-relaxed">
               The Root Cause Agent synthesizes the concurrent findings into a singular, highly confident hypothesis, pinpointing the exact lines of code responsible for the crash.
             </p>
@@ -138,7 +138,7 @@ export default function LandingPage() {
             <div className="w-14 h-14 rounded-xl bg-emerald-600/10 border border-emerald-600/20 flex items-center justify-center mb-6 group-hover:bg-emerald-600/20 transition-colors">
               <HiOutlineRocketLaunch className="w-7 h-7 text-emerald-700" />
             </div>
-            <h3 className="text-xl font-black text-slate-900 mb-3">3. Automated Patching</h3>
+            <h3 className="text-xl font-black text-white mb-3">3. Automated Patching</h3>
             <p className="text-base text-slate-800 font-medium leading-relaxed">
               The Fix Generator writes a `git diff` patch. Once validated by the Validation Agent, you simply click "Approve" and SwarmOps opens a GitHub Pull Request on your behalf automatically.
             </p>

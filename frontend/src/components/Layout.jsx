@@ -2,7 +2,7 @@ import Sidebar from "./Sidebar";
 
 export default function Layout({ children }) {
   return (
-    <div className="relative min-h-screen bg-slate-950 text-slate-900 flex overflow-hidden">
+    <div className="relative min-h-screen bg-slate-950 text-white flex overflow-hidden">
       {/* Fixed Starry Night Background - Unaltered */}
       <div className="fixed inset-0 z-0">
         <img 

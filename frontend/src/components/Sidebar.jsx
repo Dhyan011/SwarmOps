@@ -56,7 +56,7 @@ export default function Sidebar() {
                 ${
                   active
                     ? "bg-blue-500/10 text-blue-400"
-                    : "text-slate-700 font-medium hover:text-black hover:bg-white/[0.03]"
+                    : "text-slate-200 font-medium hover:text-white hover:bg-white/[0.03]"
                 }
               `}
             >
@@ -65,7 +65,7 @@ export default function Sidebar() {
               )}
               <Icon className="w-[22px] h-[22px]" />
               {/* Tooltip */}
-              <span className="absolute left-full ml-3 px-2.5 py-1 rounded-md bg-[#1a2340] text-base font-medium text-black font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg border border-white/[0.08] z-50">
+              <span className="absolute left-full ml-3 px-2.5 py-1 rounded-md bg-[#1a2340] text-base font-medium text-white font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg border border-white/[0.08] z-50">
                 {label}
               </span>
             </NavLink>
@@ -75,13 +75,13 @@ export default function Sidebar() {
 
       {/* Bottom Section */}
       <div className="flex flex-col items-center gap-2 pb-5 w-full px-3">
-        <button className="w-full max-w-[48px] aspect-square rounded-xl flex items-center justify-center text-slate-700 font-medium hover:text-black hover:bg-white/[0.03] transition-all duration-200 group relative">
+        <button className="w-full max-w-[48px] aspect-square rounded-xl flex items-center justify-center text-slate-200 font-medium hover:text-white hover:bg-white/[0.03] transition-all duration-200 group relative">
           <HiOutlineCog6Tooth className="w-[22px] h-[22px]" />
-          <span className="absolute left-full ml-3 px-2.5 py-1 rounded-md bg-[#1a2340] text-base font-medium text-black font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg border border-white/[0.08] z-50">
+          <span className="absolute left-full ml-3 px-2.5 py-1 rounded-md bg-[#1a2340] text-base font-medium text-white font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg border border-white/[0.08] z-50">
             Settings
           </span>
         </button>
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-amber-500 flex items-center justify-center text-[11px] font-bold text-black font-bold ring-2 ring-white/[0.06] cursor-pointer hover:ring-blue-500/30 transition-all duration-200">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-amber-500 flex items-center justify-center text-[11px] font-bold text-white font-bold ring-2 ring-white/[0.06] cursor-pointer hover:ring-blue-500/30 transition-all duration-200">
           S
         </div>
       </div>
