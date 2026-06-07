@@ -4,6 +4,9 @@ Production multi-agent incident response system powered by OpenRouter LLMs.
 """
 
 from fastapi import FastAPI, HTTPException
+import os
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import socketio
 
@@ -140,7 +143,26 @@ async def handle_incident_action(incident_id: str, payload: ActionRequest):
         
     return {"status": incident.status, "message": message}
 
+
+# ── Serve Frontend ──
+dist_path = os.path.join(os.path.dirname(__file__), "dist")
+os.makedirs(dist_path, exist_ok=True)
+
+# Mount assets directory for JS/CSS files
+assets_path = os.path.join(dist_path, "assets")
+os.makedirs(assets_path, exist_ok=True)
+app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
+
+# Catch-all to serve index.html for React Router
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str):
+    file_path = os.path.join(dist_path, full_path)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
+    return FileResponse(os.path.join(dist_path, "index.html"))
+
 # ── Uvicorn Runner ──
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:socket_app", host="0.0.0.0", port=8000, reload=True)

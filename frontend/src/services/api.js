@@ -1,7 +1,10 @@
 import axios from "axios";
 
+// If VITE_API_URL is empty, it uses the current origin automatically
+const API_URL = import.meta.env.VITE_API_URL || window.location.origin;
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000",
+  baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
 });
 
