@@ -71,6 +71,7 @@ class BaseAgent:
 
             response = await self.client.chat.completions.create(
                 model=LLM_MODEL,
+                max_tokens=4000,
                 messages=[
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": json.dumps(context, default=str)},
