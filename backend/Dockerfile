@@ -7,12 +7,12 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt .
+# Copy requirements from the backend folder
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend source code
-COPY . .
+# Copy the rest of the backend source code
+COPY backend/ .
 
 # Expose port (Render uses PORT env variable or defaults to 10000/8000 depending on config, but standard is 8000)
 ENV PORT=8000
