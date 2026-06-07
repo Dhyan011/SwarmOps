@@ -3,8 +3,8 @@ services:
   - type: web
     name: swarmops-backend
     env: docker
-    dockerContext: swarmops/backend
-    dockerfilePath: swarmops/backend/Dockerfile
+    dockerContext: backend
+    dockerfilePath: backend/Dockerfile
     envVars:
       - key: OPENROUTER_API_KEY
         sync: false # User must set this in the Render dashboard manually for security
@@ -15,7 +15,7 @@ services:
     env: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
-    rootDir: swarmops/frontend
+    rootDir: frontend
     envVars:
       - key: VITE_API_URL
         fromService:
