@@ -3,7 +3,7 @@ const variants = {
   warning: "bg-amber-500/15 text-amber-400 border border-amber-500/20",
   danger: "bg-red-500/15 text-red-400 border border-red-500/20",
   info: "bg-blue-500/15 text-blue-400 border border-blue-500/20",
-  neutral: "bg-white/5 text-slate-400 border border-white/10",
+  neutral: "bg-white/5 text-slate-100 text-lg font-semibold border border-white/10",
   critical: "bg-red-600/20 text-red-300 border border-red-500/30",
   amber: "bg-amber-500/15 text-amber-400 border border-amber-500/20",
 };

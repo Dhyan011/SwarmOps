@@ -58,7 +58,7 @@ function FindingSection({ finding, isLatest }) {
               : "text-slate-600"
           }`}
         />
-        <span className="flex-1 text-xs font-medium text-white">
+        <span className="flex-1 text-sm font-medium text-white">
           {formatAgentName(finding.agent)}
         </span>
         <StatusBadge variant={config.variant}>{config.label}</StatusBadge>
@@ -93,7 +93,7 @@ function FindingSection({ finding, isLatest }) {
                 </h4>
                 <ul className="space-y-1.5">
                   {finding.recommendations.map((rec, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[13px] text-slate-400">
+                    <li key={i} className="flex items-start gap-2 text-[13px] text-slate-100 text-lg font-semibold">
                       <span className="text-blue-500 mt-0.5 shrink-0">→</span>
                       <span className="leading-relaxed">{rec}</span>
                     </li>
@@ -104,13 +104,13 @@ function FindingSection({ finding, isLatest }) {
 
             {/* Empty state for running/idle */}
             {!finding.findings && finding.status === "running" && (
-              <div className="flex items-center gap-2 text-xs text-slate-600 font-medium">
+              <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse-dot" />
                 Agent is currently processing...
               </div>
             )}
             {!finding.findings && finding.status === "idle" && (
-              <p className="text-xs text-slate-600">Waiting to start...</p>
+              <p className="text-sm text-slate-600">Waiting to start...</p>
             )}
           </div>
         </div>
@@ -128,11 +128,11 @@ export default function FindingsPanel({ findings = [] }) {
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-600 font-medium mb-3 px-1">
+      <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-600 font-medium mb-3 px-1">
         Agent Findings
       </h3>
       {findings.length === 0 ? (
-        <div className="text-xs text-slate-600 py-8 text-center">
+        <div className="text-sm text-slate-600 py-8 text-center">
           No findings yet — agents haven't started.
         </div>
       ) : (

@@ -6,8 +6,8 @@ export default function EmptyState({ title = "No data yet", description = "There
           <Icon className="w-7 h-7 text-slate-600 font-medium" />
         </div>
       )}
-      <h3 className="text-xs font-semibold text-slate-300 mb-2">{title}</h3>
-      <p className="text-xs text-slate-600 font-medium text-center max-w-sm leading-relaxed">
+      <h3 className="text-sm font-semibold text-slate-300 mb-2">{title}</h3>
+      <p className="text-sm text-slate-600 font-medium text-center max-w-sm leading-relaxed">
         {description}
       </p>
     </div>

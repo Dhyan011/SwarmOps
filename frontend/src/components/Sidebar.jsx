@@ -65,7 +65,7 @@ export default function Sidebar() {
               )}
               <Icon className="w-[22px] h-[22px]" />
               {/* Tooltip */}
-              <span className="absolute left-full ml-3 px-2.5 py-1 rounded-md bg-[#1a2340] text-xs font-medium text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg border border-white/[0.08] z-50">
+              <span className="absolute left-full ml-3 px-2.5 py-1 rounded-md bg-[#1a2340] text-sm font-medium text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg border border-white/[0.08] z-50">
                 {label}
               </span>
             </NavLink>
@@ -77,7 +77,7 @@ export default function Sidebar() {
       <div className="flex flex-col items-center gap-2 pb-5 w-full px-3">
         <button className="w-full max-w-[48px] aspect-square rounded-xl flex items-center justify-center text-slate-600 font-medium hover:text-slate-300 hover:bg-white/[0.03] transition-all duration-200 group relative">
           <HiOutlineCog6Tooth className="w-[22px] h-[22px]" />
-          <span className="absolute left-full ml-3 px-2.5 py-1 rounded-md bg-[#1a2340] text-xs font-medium text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg border border-white/[0.08] z-50">
+          <span className="absolute left-full ml-3 px-2.5 py-1 rounded-md bg-[#1a2340] text-sm font-medium text-white whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg border border-white/[0.08] z-50">
             Settings
           </span>
         </button>

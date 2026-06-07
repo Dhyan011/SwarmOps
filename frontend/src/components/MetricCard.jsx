@@ -21,7 +21,7 @@ export default function MetricCard({ label, value, suffix = "", trend = null, tr
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-start justify-between mb-4">
-        <p className="text-[13px] font-medium text-slate-400 uppercase tracking-wider">
+        <p className="text-[13px] font-medium text-slate-100 text-lg font-semibold uppercase tracking-wider">
           {label}
         </p>
         {Icon && (
@@ -35,7 +35,7 @@ export default function MetricCard({ label, value, suffix = "", trend = null, tr
           {value}
         </span>
         {suffix && (
-          <span className="text-xs font-medium text-slate-600 font-medium mb-1">
+          <span className="text-sm font-medium text-slate-600 font-medium mb-1">
             {suffix}
           </span>
         )}
@@ -43,7 +43,7 @@ export default function MetricCard({ label, value, suffix = "", trend = null, tr
       {trend && (
         <div className={`flex items-center gap-1.5 mt-3 ${trendColor}`}>
           <TrendIcon className="w-3.5 h-3.5" />
-          <span className="text-xs font-medium">{trendValue}</span>
+          <span className="text-sm font-medium">{trendValue}</span>
         </div>
       )}
     </div>

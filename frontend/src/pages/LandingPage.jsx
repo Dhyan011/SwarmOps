@@ -69,7 +69,7 @@ export default function LandingPage() {
       >
         <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.4] border border-black/[0.1] mb-8 backdrop-blur-md shadow-sm">
           <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse-dot" />
-          <span className="text-sm font-bold text-slate-900 uppercase tracking-wider">SwarmOps Core v0.2.0 is Live</span>
+          <span className="text-base font-bold text-slate-900 uppercase tracking-wider">SwarmOps Core v0.2.0 is Live</span>
         </motion.div>
 
         <motion.h1 variants={itemVariants} className="text-6xl md:text-8xl font-black tracking-tight mb-6 leading-tight drop-shadow-xl text-slate-900">

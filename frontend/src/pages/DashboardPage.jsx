@@ -101,7 +101,7 @@ export default function DashboardPage() {
         <h1 className="text-4xl font-bold tracking-tight mb-2">
           <span className="gradient-text">Command Center</span>
         </h1>
-        <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
+        <p className="text-sm text-slate-100 text-lg font-semibold max-w-xl leading-relaxed">
           Monitor, investigate, and resolve incidents with AI-powered agent swarms.
         </p>
       </motion.div>
@@ -147,10 +147,10 @@ export default function DashboardPage() {
 
       {/* New Incident Panel */}
       <motion.div variants={itemVariants} className="glass-card p-6 lg:p-8">
-        <h2 className="text-xs font-semibold text-white mb-1">
+        <h2 className="text-sm font-semibold text-white mb-1">
           Launch Investigation
         </h2>
-        <p className="text-xs text-slate-600 font-medium mb-6">
+        <p className="text-sm text-slate-600 font-medium mb-6">
           Describe the incident and deploy an AI agent swarm to investigate.
         </p>
 
@@ -165,7 +165,7 @@ export default function DashboardPage() {
               className="
                 w-full px-4 py-3 rounded-xl
                 bg-white/[0.03] border border-white/[0.08]
-                text-xs text-white placeholder-slate-600
+                text-sm text-white placeholder-slate-600
                 focus:outline-none focus:border-blue-500/30 focus:ring-1 focus:ring-blue-500/20
                 resize-none transition-all duration-200
               "
@@ -186,7 +186,7 @@ export default function DashboardPage() {
                 className="
                   w-full px-4 py-2.5 rounded-lg
                   bg-white/[0.03] border border-white/[0.08]
-                  text-xs text-white placeholder-slate-600
+                  text-sm text-white placeholder-slate-600
                   focus:outline-none focus:border-blue-500/30 focus:ring-1 focus:ring-blue-500/20
                   transition-all duration-200
                 "
@@ -203,7 +203,7 @@ export default function DashboardPage() {
                   className="
                     w-full px-4 py-2.5 rounded-lg appearance-none
                     bg-white/[0.03] border border-white/[0.08]
-                    text-xs text-white
+                    text-sm text-white
                     focus:outline-none focus:border-blue-500/30 focus:ring-1 focus:ring-blue-500/20
                     transition-all duration-200 cursor-pointer
                   "
@@ -231,7 +231,7 @@ export default function DashboardPage() {
               className="
                 w-full px-4 py-2.5 rounded-lg
                 bg-white/[0.03] border border-white/[0.08]
-                text-xs text-white placeholder-slate-600
+                text-sm text-white placeholder-slate-600
                 focus:outline-none focus:border-blue-500/30 focus:ring-1 focus:ring-blue-500/20
                 transition-all duration-200
               "
@@ -248,10 +248,10 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => setAnalysisMode("full")}
-                  className={`flex-1 py-2 text-xs font-medium rounded-md transition-all duration-200 ${
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                     analysisMode === "full"
                       ? "bg-blue-500/20 text-blue-400 shadow-sm"
-                      : "text-slate-400 hover:text-white"
+                      : "text-slate-100 text-lg font-semibold hover:text-white"
                   }`}
                 >
                   Full Context Injection
@@ -259,10 +259,10 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => setAnalysisMode("agentic")}
-                  className={`flex-1 py-2 text-xs font-medium rounded-md transition-all duration-200 ${
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
                     analysisMode === "agentic"
                       ? "bg-blue-500/20 text-blue-400 shadow-sm"
-                      : "text-slate-400 hover:text-white"
+                      : "text-slate-100 text-lg font-semibold hover:text-white"
                   }`}
                 >
                   Agentic File Fetching
@@ -281,7 +281,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setShowCode(!showCode)}
-              className="flex items-center gap-2 text-xs font-medium text-slate-600 font-medium hover:text-slate-300 transition-colors duration-200"
+              className="flex items-center gap-2 text-sm font-medium text-slate-600 font-medium hover:text-slate-300 transition-colors duration-200"
             >
               <HiOutlineCodeBracket className="w-4 h-4" />
               {showCode ? "Hide Code Snippet" : "Attach Code Snippet"}
@@ -298,7 +298,7 @@ export default function DashboardPage() {
                 className="
                   w-full mt-3 px-4 py-3 rounded-xl
                   bg-white/[0.03] border border-white/[0.08]
-                  text-xs text-white placeholder-slate-600 font-mono
+                  text-sm text-white placeholder-slate-600 font-mono
                   focus:outline-none focus:border-blue-500/30 focus:ring-1 focus:ring-blue-500/20
                   resize-none transition-all duration-200 animate-fade-in
                 "
@@ -308,7 +308,7 @@ export default function DashboardPage() {
 
           {/* Error */}
           {error && (
-            <div className="px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400 animate-fade-in">
+            <div className="px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400 animate-fade-in">
               {error}
             </div>
           )}
@@ -320,7 +320,7 @@ export default function DashboardPage() {
             className="
               inline-flex items-center gap-2 px-6 py-3 rounded-xl
               bg-gradient-to-r from-blue-500 to-blue-400
-              text-xs font-semibold text-black
+              text-sm font-semibold text-black
               hover:shadow-[0_0_30px_rgba(34,211,238,0.3)]
               active:scale-[0.98]
               disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none
@@ -341,7 +341,7 @@ export default function DashboardPage() {
 
       {/* Recent Incidents */}
       <motion.div variants={itemVariants}>
-        <h2 className="text-xs font-semibold text-white mb-4">
+        <h2 className="text-sm font-semibold text-white mb-4">
           Recent Investigations
         </h2>
         {incidents.length > 0 ? (

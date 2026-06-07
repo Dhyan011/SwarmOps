@@ -62,13 +62,13 @@ export default function IncidentCard({ incident, delay = 0 }) {
       {/* Main content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-mono text-blue-400/80">
+          <span className="text-sm font-mono text-blue-400/80">
             #{incident_id?.slice(0, 8)}
           </span>
           <span className="text-slate-600">·</span>
-          <span className="text-xs text-slate-600 font-medium">{service}</span>
+          <span className="text-sm text-slate-600 font-medium">{service}</span>
         </div>
-        <p className="text-xs text-slate-300 truncate leading-relaxed">
+        <p className="text-sm text-slate-300 truncate leading-relaxed">
           {description}
         </p>
       </div>
