@@ -101,7 +101,7 @@ export default function DashboardPage() {
         <h1 className="text-4xl font-bold tracking-tight mb-2">
           <span className="gradient-text">Command Center</span>
         </h1>
-        <p className="text-base text-white text-lg font-semibold max-w-xl leading-relaxed">
+        <p className="text-base text-black text-lg font-semibold max-w-xl leading-relaxed">
           Monitor, investigate, and resolve incidents with AI-powered agent swarms.
         </p>
       </motion.div>
@@ -147,10 +147,10 @@ export default function DashboardPage() {
 
       {/* New Incident Panel */}
       <motion.div variants={itemVariants} className="glass-card p-6 lg:p-8">
-        <h2 className="text-base font-semibold text-white font-bold mb-1">
+        <h2 className="text-base font-semibold text-black font-bold mb-1">
           Launch Investigation
         </h2>
-        <p className="text-base text-slate-300 font-medium mb-6">
+        <p className="text-base text-slate-700 font-medium mb-6">
           Describe the incident and deploy an AI agent swarm to investigate.
         </p>
 
@@ -165,7 +165,7 @@ export default function DashboardPage() {
               className="
                 w-full px-4 py-3 rounded-xl
                 bg-white/[0.03] border border-white/[0.08]
-                text-base text-white font-bold placeholder-slate-400
+                text-base text-black font-bold placeholder-slate-500
                 focus:outline-none focus:border-blue-500/30 focus:ring-1 focus:ring-blue-500/20
                 resize-none transition-all duration-200
               "
@@ -175,7 +175,7 @@ export default function DashboardPage() {
           {/* Service + Severity row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 font-medium mb-2">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-700 font-medium mb-2">
                 Service Name
               </label>
               <input
@@ -186,14 +186,14 @@ export default function DashboardPage() {
                 className="
                   w-full px-4 py-2.5 rounded-lg
                   bg-white/[0.03] border border-white/[0.08]
-                  text-base text-white font-bold placeholder-slate-400
+                  text-base text-black font-bold placeholder-slate-500
                   focus:outline-none focus:border-blue-500/30 focus:ring-1 focus:ring-blue-500/20
                   transition-all duration-200
                 "
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 font-medium mb-2">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-700 font-medium mb-2">
                 Severity
               </label>
               <div className="relative">
@@ -203,7 +203,7 @@ export default function DashboardPage() {
                   className="
                     w-full px-4 py-2.5 rounded-lg appearance-none
                     bg-white/[0.03] border border-white/[0.08]
-                    text-base text-white font-bold
+                    text-base text-black font-bold
                     focus:outline-none focus:border-blue-500/30 focus:ring-1 focus:ring-blue-500/20
                     transition-all duration-200 cursor-pointer
                   "
@@ -213,14 +213,14 @@ export default function DashboardPage() {
                   <option value="high">High</option>
                   <option value="critical">Critical</option>
                 </select>
-                <HiOutlineChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 font-medium pointer-events-none" />
+                <HiOutlineChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-700 font-medium pointer-events-none" />
               </div>
             </div>
           </div>
 
           {/* Target URL */}
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 font-medium mb-2">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-700 font-medium mb-2">
               Investigation Target URL (GitHub Repo or Website)
             </label>
             <input
@@ -231,7 +231,7 @@ export default function DashboardPage() {
               className="
                 w-full px-4 py-2.5 rounded-lg
                 bg-white/[0.03] border border-white/[0.08]
-                text-base text-white font-bold placeholder-slate-400
+                text-base text-black font-bold placeholder-slate-500
                 focus:outline-none focus:border-blue-500/30 focus:ring-1 focus:ring-blue-500/20
                 transition-all duration-200
               "
@@ -241,7 +241,7 @@ export default function DashboardPage() {
           {/* Analysis Mode Toggle (only show if URL provided) */}
           {targetUrl && (
             <div className="animate-fade-in">
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 font-medium mb-2">
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-700 font-medium mb-2">
                 Analysis Mode
               </label>
               <div className="flex bg-white/[0.03] rounded-lg p-1 border border-white/[0.08]">
@@ -251,7 +251,7 @@ export default function DashboardPage() {
                   className={`flex-1 py-2 text-base font-medium rounded-md transition-all duration-200 ${
                     analysisMode === "full"
                       ? "bg-blue-500/20 text-blue-400 shadow-sm"
-                      : "text-white text-lg font-semibold hover:text-white font-bold"
+                      : "text-black text-lg font-semibold hover:text-black font-bold"
                   }`}
                 >
                   Full Context Injection
@@ -262,13 +262,13 @@ export default function DashboardPage() {
                   className={`flex-1 py-2 text-base font-medium rounded-md transition-all duration-200 ${
                     analysisMode === "agentic"
                       ? "bg-blue-500/20 text-blue-400 shadow-sm"
-                      : "text-white text-lg font-semibold hover:text-white font-bold"
+                      : "text-black text-lg font-semibold hover:text-black font-bold"
                   }`}
                 >
                   Agentic File Fetching
                 </button>
               </div>
-              <p className="text-[11px] text-slate-300 font-medium mt-2">
+              <p className="text-[11px] text-slate-700 font-medium mt-2">
                 {analysisMode === "full" 
                   ? "Packs the entire repository into the agent prompt (best for small/medium repos)."
                   : "Agents selectively fetch specific files via tools (best for massive monorepos)."}
@@ -281,7 +281,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setShowCode(!showCode)}
-              className="flex items-center gap-2 text-base font-medium text-slate-300 font-medium hover:text-white transition-colors duration-200"
+              className="flex items-center gap-2 text-base font-medium text-slate-700 font-medium hover:text-black transition-colors duration-200"
             >
               <HiOutlineCodeBracket className="w-4 h-4" />
               {showCode ? "Hide Code Snippet" : "Attach Code Snippet"}
@@ -298,7 +298,7 @@ export default function DashboardPage() {
                 className="
                   w-full mt-3 px-4 py-3 rounded-xl
                   bg-white/[0.03] border border-white/[0.08]
-                  text-base text-white font-bold placeholder-slate-400 font-mono
+                  text-base text-black font-bold placeholder-slate-500 font-mono
                   focus:outline-none focus:border-blue-500/30 focus:ring-1 focus:ring-blue-500/20
                   resize-none transition-all duration-200 animate-fade-in
                 "
@@ -320,7 +320,7 @@ export default function DashboardPage() {
             className="
               inline-flex items-center gap-2 px-6 py-3 rounded-xl
               bg-gradient-to-r from-blue-500 to-blue-400
-              text-base font-semibold text-white
+              text-base font-semibold text-black
               hover:shadow-[0_0_30px_rgba(34,211,238,0.3)]
               active:scale-[0.98]
               disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none
@@ -341,7 +341,7 @@ export default function DashboardPage() {
 
       {/* Recent Incidents */}
       <motion.div variants={itemVariants}>
-        <h2 className="text-base font-semibold text-white font-bold mb-4">
+        <h2 className="text-base font-semibold text-black font-bold mb-4">
           Recent Investigations
         </h2>
         {incidents.length > 0 ? (

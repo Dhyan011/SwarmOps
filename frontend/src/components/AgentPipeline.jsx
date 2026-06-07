@@ -32,7 +32,7 @@ const statusStyles = {
   idle: {
     ring: "border-white/10",
     bg: "bg-white/[0.03]",
-    icon: "text-slate-300",
+    icon: "text-slate-700",
     dot: "",
   },
   running: {
@@ -79,7 +79,7 @@ export default function AgentPipeline({ agents = [] }) {
         {PHASES.map((phase, pi) => (
           <div key={phase.label} className="flex items-center">
             {pi > 0 && <div className="w-px h-4 bg-slate-900/40 mx-3" />}
-            <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-300 font-medium whitespace-nowrap">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-700 font-medium whitespace-nowrap">
               {phase.label}
             </span>
           </div>
@@ -124,7 +124,7 @@ export default function AgentPipeline({ agents = [] }) {
                 <span
                   className={`
                     text-[10px] font-medium whitespace-nowrap transition-colors duration-300
-                    ${status === "idle" ? "text-slate-300" : ""}
+                    ${status === "idle" ? "text-slate-700" : ""}
                     ${status === "running" ? "text-blue-400" : ""}
                     ${status === "completed" ? "text-emerald-400" : ""}
                     ${status === "failed" ? "text-red-400" : ""}

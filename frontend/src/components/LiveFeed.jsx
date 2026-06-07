@@ -15,7 +15,7 @@ const statusTextColors = {
   completed: "text-emerald-400",
   failed: "text-red-400",
   warning: "text-amber-400",
-  info: "text-white text-lg font-semibold",
+  info: "text-black text-lg font-semibold",
 };
 
 function formatTime(ts) {
@@ -46,11 +46,11 @@ export default function LiveFeed({ events = [] }) {
       <div className="px-4 py-3 border-b border-white/[0.08] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse-dot" />
-          <span className="text-base font-semibold uppercase tracking-wider text-white text-lg font-semibold">
+          <span className="text-base font-semibold uppercase tracking-wider text-black text-lg font-semibold">
             Live Feed
           </span>
         </div>
-        <span className="text-[10px] text-slate-300 tabular-nums">
+        <span className="text-[10px] text-slate-700 tabular-nums">
           {events.length} events
         </span>
       </div>
@@ -61,14 +61,14 @@ export default function LiveFeed({ events = [] }) {
         className="flex-1 overflow-y-auto px-4 py-2 space-y-0.5 max-h-[500px]"
       >
         {sortedEvents.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-base text-slate-300">
+          <div className="flex items-center justify-center py-12 text-base text-slate-700">
             Waiting for agent events...
           </div>
         ) : (
           sortedEvents.map((event, i) => {
             const status = event.status || "info";
             const dotColor = statusColors[status] || "bg-slate-400";
-            const textColor = statusTextColors[status] || "text-white text-lg font-semibold";
+            const textColor = statusTextColors[status] || "text-black text-lg font-semibold";
 
             return (
               <div
@@ -91,12 +91,12 @@ export default function LiveFeed({ events = [] }) {
                     <span className={`text-[11px] font-semibold uppercase tracking-wider ${textColor}`}>
                       {event.agent || "System"}
                     </span>
-                    <span className="text-white text-lg font-semibold">·</span>
-                    <span className="text-[10px] text-slate-300 tabular-nums">
+                    <span className="text-black text-lg font-semibold">·</span>
+                    <span className="text-[10px] text-slate-700 tabular-nums">
                       {formatTime(event.timestamp)}
                     </span>
                   </div>
-                  <p className="text-[13px] text-white text-lg font-semibold leading-relaxed break-words">
+                  <p className="text-[13px] text-black text-lg font-semibold leading-relaxed break-words">
                     {event.message || "—"}
                   </p>
                 </div>
