@@ -4,6 +4,8 @@
 
 🚀 **Live Demo:** [https://swarmops-1.onrender.com](https://swarmops-1.onrender.com)
 
+---
+
 ## 🧠 Concept & Architecture
 
 When a production system throws an alert or an incident is reported, the traditional approach requires on-call engineers to manually sift through logs, metrics, traces, and code. SwarmOps automates this entirely using a **Sequential AI Swarm Pipeline**:
@@ -19,31 +21,33 @@ When a production system throws an alert or an incident is reported, the traditi
 
 As the agents work, they stream their progress in **real-time** over WebSockets to the SwarmOps React Dashboard, giving the user a live view of the AI "thinking" through the problem.
 
-### System Diagram
+### 🗺 Detailed System Architecture
 
 ```mermaid
 graph TD
     %% Define Styles
-    classDef frontend fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#fff;
-    classDef backend fill:#10b981,stroke:#047857,stroke-width:2px,color:#fff;
-    classDef ai fill:#8b5cf6,stroke:#6d28d9,stroke-width:2px,color:#fff;
-    classDef external fill:#f59e0b,stroke:#b45309,stroke-width:2px,color:#fff;
+    classDef frontend fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#fff;
+    classDef backend fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#fff;
+    classDef ai fill:#4c1d95,stroke:#8b5cf6,stroke-width:2px,color:#fff;
+    classDef external fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fff;
+    classDef storage fill:#0f172a,stroke:#94a3b8,stroke-width:2px,color:#fff;
 
-    subgraph Client [Browser Client]
+    subgraph Browser Client
         UI[React Dashboard UI]:::frontend
         WS_Client[Socket.IO Client]:::frontend
+        LocalStorage[(Browser localStorage)]:::storage
     end
 
-    subgraph Server [Monolithic Docker Container]
-        subgraph FastAPI [FastAPI Backend]
-            Static[Static Files Server]:::backend
+    subgraph Server [Monolithic FastAPI Docker Container]
+        subgraph FastAPI [Backend Services]
+            Static[Static Asset Server]:::backend
             API[REST API Router]:::backend
             WS_Server[Socket.IO Server]:::backend
-            
+            DB[(Persistent JSON Database)]:::storage
             Orchestrator[AI Orchestrator Engine]:::backend
         end
 
-        subgraph Swarm [Agent Swarm]
+        subgraph Swarm [Autonomous Agent Swarm]
             Agent1[Triage Agent]:::ai
             Agent2[Log Analyzer]:::ai
             Agent3[Metrics Agent]:::ai
@@ -55,19 +59,25 @@ graph TD
         end
     end
 
-    subgraph External Services
+    subgraph External Dependencies
         GitHub[(GitHub Repositories)]:::external
         OpenRouter[OpenRouter API / LLMs]:::external
     end
 
-    %% Client to Server Connections
-    UI -- "1. Loads Site" --> Static
-    UI -- "2. POST /api/v1/incident" --> API
+    %% Authentication Flow
+    UI -- "1. OAuth Login" --> OpenRouter
+    OpenRouter -- "2. Returns API Key" --> LocalStorage
+    
+    %% API Requests
+    UI -- "3. POST /incident (X-API-Key)" --> API
+    API -- "Stores Reports" --> DB
+    
+    %% WebSockets
     WS_Client -- "Real-time Live Feed" <--> WS_Server
 
     %% Server Internal Workings
-    API -- "Triggers" --> Orchestrator
-    Orchestrator -- "Clones repo via Git" --> GitHub
+    API -- "Triggers Investigation" --> Orchestrator
+    Orchestrator -- "Clones repo via Git Tool" --> GitHub
     
     %% Orchestrator to Agents (Workflow)
     Orchestrator --> Agent1
@@ -76,24 +86,32 @@ graph TD
     Agent6 --> Agent7
     Agent7 --> Agent8
 
-    %% Agent External Connections
-    Swarm -- "Sends Prompts & Code" --> OpenRouter
+    %% AI Actions
+    Swarm -- "Sends Context & Prompts" --> OpenRouter
     Swarm -- "Emits Real-time Logs" --> WS_Server
+    Agent7 -- "Auto-Creates PR on Approval" --> GitHub
 ```
+
+## 🔒 Privacy & Data Collection
+
+SwarmOps is built with a **Privacy First** mindset:
+- **No Personal Data Stored:** We do not track users or store personal emails/passwords.
+- **Secure API Key Management:** Your OpenRouter API key is securely stored in your browser's `localStorage`. The backend only receives the key via headers on a per-request basis and never saves it to the database.
+- **Persistent Analytics:** Incident reports and generated patches are permanently stored in a lightweight JSON database (`data/incidents.json`) to power the Dashboard Analytics without requiring complex external database connections.
 
 ## 🛠 Tech Stack
 
 ### Backend (AI Pipeline & API)
 * **Python 3.11+**
 * **FastAPI**: High-performance async web framework.
-* **Socket.IO**: Real-time event streaming.
-* **OpenRouter**: The LLM engine powering the agents.
-* **Docker**: Containerized deployment environment.
+* **Socket.IO**: Real-time event streaming (`python-socketio`).
+* **Pydantic**: Strict data validation.
+* **OpenRouter**: The LLM engine powering the agents (dynamic client initialization per request).
 
 ### Frontend (Real-time Dashboard)
 * **React + Vite**: Blazing fast frontend build tool.
-* **Tailwind CSS**: Utility-first styling.
-* **Framer Motion**: Smooth, high-performance animations.
+* **Tailwind CSS**: Utility-first styling with custom Dark Cosmic Glassmorphism UI.
+* **Framer Motion**: Smooth, high-performance animations and 3D parallax effects.
 
 ## 🚀 Getting Started (Local Development)
 
@@ -105,11 +123,6 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Create a `.env` file in the `backend` folder:
-```ini
-OPENROUTER_API_KEY=your_api_key_here
-```
-
 ### 2. Setup Frontend
 ```bash
 cd frontend
@@ -118,12 +131,14 @@ npm run build
 ```
 
 ### 3. Run the Monolith
-The FastAPI backend serves the compiled React frontend automatically.
+The FastAPI backend is configured to serve the compiled React frontend automatically.
 ```bash
 cd backend
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn main:socket_app --host 0.0.0.0 --port 8000 --reload
 ```
-Open `http://localhost:8000` in your browser.
+Open `http://localhost:8000` in your browser. 
+
+*Note: You do not need an `.env` file! Just click "Sign In with OpenRouter" on the local frontend to authenticate.*
 
 ## ☁️ Deployment
 
@@ -134,7 +149,7 @@ To deploy on Render:
 2. Connect your GitHub repository.
 3. Set the **Root Directory** to `backend`.
 4. Set the **Dockerfile Path** to `Dockerfile`.
-5. Add the `OPENROUTER_API_KEY` Environment Variable.
+5. *No environment variables are required for deployment since it uses OAuth!*
 
 Render will automatically run the multi-stage build (compiling the React app and installing the Python dependencies) and serve the unified application.
 
