@@ -12,6 +12,7 @@ import asyncio
 import json
 import time
 from datetime import datetime, timezone
+from fastapi import HTTPException
 
 from models.schemas import IncidentCreate, IncidentReport, AgentFinding
 
@@ -86,6 +87,12 @@ class Orchestrator:
         phases.append({"phase": "triage", "status": "completed", "result": triage_result})
         agent_findings.append(self._to_finding(self.triage_agent, triage_result))
         context["triage_result"] = triage_result
+        
+        if "error" in triage_result:
+            error_msg = triage_result["error"]
+            await self._emit_phase(incident_id, "triage", "failed", f"Investigation aborted due to API error: {error_msg}")
+            raise HTTPException(status_code=429, detail=f"OpenRouter API limit or error encountered: {error_msg}")
+
         await self._emit_phase(incident_id, "triage", "completed", "Triage phase completed")
 
         # ── Phase 2: Parallel Investigation ───────────────────────────
@@ -154,7 +161,7 @@ class Orchestrator:
             phases=phases,
             agent_findings=agent_findings,
             root_cause=root_cause_result.get("root_cause", "Unable to determine"),
-            confidence=int(root_cause_result.get("confidence", 0)),
+            confidence=self._parse_confidence(root_cause_result.get("confidence", 0)),
             recommended_fix=fix_result.get("fix_description", "No fix generated"),
             code_patch=fix_result.get("code_patch", ""),
             validation_result=validation_result.get("validation_status", "unknown"),
@@ -165,6 +172,18 @@ class Orchestrator:
         return report
 
     # ── Helpers ────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _parse_confidence(val) -> int:
+        """Safely parse LLM confidence outputs (e.g. '95%', 'High', 'N/A') to an integer."""
+        if isinstance(val, int):
+            return val
+        try:
+            if isinstance(val, str):
+                val = val.replace('%', '').strip()
+            return int(float(val))
+        except (ValueError, TypeError):
+            return 0
 
     async def _emit_phase(self, incident_id: str, phase: str, status: str, message: str):
         await self.sio.emit("agent_event", {
