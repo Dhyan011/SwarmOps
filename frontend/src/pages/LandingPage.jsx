@@ -67,7 +67,7 @@ export default function LandingPage() {
         initial="hidden"
         animate="visible"
       >
-        <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.4] border border-black/[0.1] mb-8 backdrop-blur-md shadow-sm">
+        <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.05] border border-white/[0.1] mb-8 backdrop-blur-md shadow-sm">
           <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse-dot" />
           <span className="text-base font-bold text-white uppercase tracking-wider">SwarmOps Core v0.2.0 is Live</span>
         </motion.div>
@@ -92,7 +92,7 @@ export default function LandingPage() {
           </button>
           <a 
             href="#how-it-works"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white/[0.4] border border-black/[0.1] text-white font-bold text-lg hover:bg-white/[0.6] hover:border-black/[0.2] backdrop-blur-md transition-all hover:scale-105 active:scale-95 shadow-sm"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white font-bold text-lg hover:bg-white/[0.1] hover:border-white/[0.2] backdrop-blur-md transition-all hover:scale-105 active:scale-95 shadow-sm"
           >
             Read the Manual
           </a>
@@ -108,38 +108,38 @@ export default function LandingPage() {
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.6 }}
       >
-        <div className="text-center mb-16 bg-white/30 p-8 rounded-3xl backdrop-blur-md border border-white/50 inline-block mx-auto">
+        <div className="text-center mb-16 bg-white/[0.02] p-8 rounded-3xl backdrop-blur-md border border-white/[0.08] inline-block mx-auto">
           <h2 className="text-4xl md:text-5xl font-black text-white mb-4 drop-shadow-sm">How The Swarm Works</h2>
-          <p className="text-lg md:text-xl text-slate-800 font-semibold max-w-2xl mx-auto">A multi-phase, highly concurrent architecture that acts exactly like a Senior SRE team.</p>
+          <p className="text-lg md:text-xl text-slate-200 font-semibold max-w-2xl mx-auto">A multi-phase, highly concurrent architecture that acts exactly like a Senior SRE team.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="glass-card p-8 group backdrop-blur-xl bg-white/60 border-white/50 shadow-xl hover:shadow-2xl transition-all">
+          <div className="glass-card p-8 group backdrop-blur-xl bg-white/[0.05] border-white/[0.08] shadow-xl hover:shadow-2xl transition-all">
             <div className="w-14 h-14 rounded-xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center mb-6 group-hover:bg-blue-600/20 transition-colors">
               <HiOutlineCpuChip className="w-7 h-7 text-blue-700" />
             </div>
             <h3 className="text-xl font-black text-white mb-3">1. Parallel Investigation</h3>
-            <p className="text-base text-slate-800 font-medium leading-relaxed">
+            <p className="text-base text-slate-200 font-medium leading-relaxed">
               Upon incident creation, the Orchestrator spins up four specialized agents (Logs, Metrics, Trace, Security) to concurrently fetch context and analyze the target repository or environment.
             </p>
           </div>
 
-          <div className="glass-card p-8 group backdrop-blur-xl bg-white/60 border-white/50 shadow-xl hover:shadow-2xl transition-all">
+          <div className="glass-card p-8 group backdrop-blur-xl bg-white/[0.05] border-white/[0.08] shadow-xl hover:shadow-2xl transition-all">
             <div className="w-14 h-14 rounded-xl bg-amber-600/10 border border-amber-600/20 flex items-center justify-center mb-6 group-hover:bg-amber-600/20 transition-colors">
               <HiOutlineCodeBracket className="w-7 h-7 text-amber-700" />
             </div>
             <h3 className="text-xl font-black text-white mb-3">2. Root Cause Synthesis</h3>
-            <p className="text-base text-slate-800 font-medium leading-relaxed">
+            <p className="text-base text-slate-200 font-medium leading-relaxed">
               The Root Cause Agent synthesizes the concurrent findings into a singular, highly confident hypothesis, pinpointing the exact lines of code responsible for the crash.
             </p>
           </div>
 
-          <div className="glass-card p-8 group backdrop-blur-xl bg-white/60 border-white/50 shadow-xl hover:shadow-2xl transition-all">
+          <div className="glass-card p-8 group backdrop-blur-xl bg-white/[0.05] border-white/[0.08] shadow-xl hover:shadow-2xl transition-all">
             <div className="w-14 h-14 rounded-xl bg-emerald-600/10 border border-emerald-600/20 flex items-center justify-center mb-6 group-hover:bg-emerald-600/20 transition-colors">
               <HiOutlineRocketLaunch className="w-7 h-7 text-emerald-700" />
             </div>
             <h3 className="text-xl font-black text-white mb-3">3. Automated Patching</h3>
-            <p className="text-base text-slate-800 font-medium leading-relaxed">
+            <p className="text-base text-slate-200 font-medium leading-relaxed">
               The Fix Generator writes a `git diff` patch. Once validated by the Validation Agent, you simply click "Approve" and SwarmOps opens a GitHub Pull Request on your behalf automatically.
             </p>
           </div>

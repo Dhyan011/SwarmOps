@@ -151,7 +151,7 @@ export default function ReportPage() {
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <button
           onClick={() => navigate(id ? `/incident/${id}` : "/")}
-          className="w-9 h-9 rounded-lg bg-white/40 shadow-sm border border-black/[0.1] flex items-center justify-center text-slate-800 font-bold hover:text-black hover:border-black/[0.2] transition-all duration-200"
+          className="w-9 h-9 rounded-lg bg-white/[0.05] shadow-sm border border-white/[0.1] flex items-center justify-center text-slate-200 font-bold hover:text-black hover:border-white/[0.3] transition-all duration-200"
         >
           <HiOutlineArrowLeft className="w-5 h-5" />
         </button>
@@ -159,9 +159,9 @@ export default function ReportPage() {
           onClick={handleExport}
           className="
             inline-flex items-center gap-2 px-4 py-2 rounded-lg
-            bg-white/40 shadow-sm border border-black/[0.1]
-            text-[15px] font-bold text-slate-800
-            hover:bg-white/60 shadow-md hover:border-black/[0.15]
+            bg-white/[0.05] shadow-sm border border-white/[0.1]
+            text-[15px] font-bold text-slate-200
+            hover:bg-white/[0.1] shadow-md hover:border-white/[0.2]
             transition-all duration-200
           "
         >
@@ -330,7 +330,7 @@ export default function ReportPage() {
           <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-200 font-semibold font-medium mb-4">
             Validation Result
           </h2>
-          <p className="text-xl text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
+          <p className="text-xl text-slate-200 font-medium leading-relaxed whitespace-pre-wrap">
             {validationResult}
           </p>
         </motion.div>

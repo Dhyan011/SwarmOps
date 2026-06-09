@@ -31,7 +31,7 @@ export default function CodeDiff({ patch = "" }) {
         <span className="text-base text-slate-200 font-medium ml-2 font-medium">Proposed Fix</span>
       </div>
       <div className="overflow-x-auto">
-        <pre className="text-[13px] leading-6 font-mono p-0 m-0">
+        <pre className="text-[15px] leading-6 font-mono p-0 m-0">
           {lines.map((line) => (
             <div
               key={line.number}
@@ -49,8 +49,8 @@ export default function CodeDiff({ patch = "" }) {
               <span
                 className={`
                   flex-1 whitespace-pre
-                  ${line.type === "add" ? "text-emerald-300" : ""}
-                  ${line.type === "remove" ? "text-red-300" : ""}
+                  ${line.type === "add" ? "text-emerald-400 font-bold" : ""}
+                  ${line.type === "remove" ? "text-red-400 font-bold" : ""}
                   ${line.type === "neutral" ? "text-white text-lg font-semibold" : ""}
                 `}
               >
