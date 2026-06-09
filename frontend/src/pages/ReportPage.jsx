@@ -109,9 +109,40 @@ export default function ReportPage() {
     visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100 } }
   };
 
+  const renderFindings = (findingsText) => {
+    if (!findingsText) return null;
+    try {
+      const parsed = JSON.parse(findingsText);
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        return (
+          <div className="space-y-4 mt-3">
+            {Object.entries(parsed).map(([key, value]) => {
+              if (key.startsWith('_') || key === 'recommendations' || value === null || value === '') return null;
+              const formattedKey = key
+                .split('_')
+                .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                .join(' ');
+              return (
+                <div key={key} className="bg-white/[0.02] p-4 rounded-xl border border-white/[0.05]">
+                  <span className="block text-blue-400 font-bold mb-2 tracking-wide uppercase text-[11px]">{formattedKey}</span>
+                  <div className="text-white text-[15px] whitespace-pre-wrap leading-relaxed">
+                    {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+    } catch (e) {
+      // Not JSON, just render text
+    }
+    return <p className="text-[15px] text-white leading-relaxed whitespace-pre-wrap mt-3">{findingsText}</p>;
+  };
+
   return (
     <motion.div 
-      className="max-w-4xl mx-auto space-y-8"
+      className="max-w-4xl mx-auto space-y-8 pb-20"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
@@ -120,21 +151,21 @@ export default function ReportPage() {
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <button
           onClick={() => navigate(id ? `/incident/${id}` : "/")}
-          className="w-9 h-9 rounded-lg bg-white/40 shadow-sm border border-black/[0.1] flex items-center justify-center text-slate-200 hover:text-white hover:border-black/[0.1] transition-all duration-200"
+          className="w-9 h-9 rounded-lg bg-white/40 shadow-sm border border-black/[0.1] flex items-center justify-center text-slate-800 font-bold hover:text-black hover:border-black/[0.2] transition-all duration-200"
         >
-          <HiOutlineArrowLeft className="w-4 h-4" />
+          <HiOutlineArrowLeft className="w-5 h-5" />
         </button>
         <button
           onClick={handleExport}
           className="
             inline-flex items-center gap-2 px-4 py-2 rounded-lg
             bg-white/40 shadow-sm border border-black/[0.1]
-            text-xl font-medium text-slate-800 font-medium
+            text-[15px] font-bold text-slate-800
             hover:bg-white/60 shadow-md hover:border-black/[0.15]
             transition-all duration-200
           "
         >
-          <HiOutlineArrowDownTray className="w-4 h-4" />
+          <HiOutlineArrowDownTray className="w-5 h-5" />
           Export JSON
         </button>
       </motion.div>
@@ -150,22 +181,22 @@ export default function ReportPage() {
           </div>
           <span className="text-xl font-bold gradient-text">SwarmOps</span>
         </div>
-        <h1 className="text-2xl font-bold text-white mb-2">Incident Report</h1>
-        <p className="text-xl font-mono text-blue-400/80">#{id}</p>
+        <h1 className="text-3xl font-black text-white mb-2 tracking-tight">Incident Report</h1>
+        <p className="text-[17px] font-mono text-blue-400 font-bold tracking-wider">#{id}</p>
       </motion.div>
 
       {/* Incident Summary */}
-      <motion.div variants={itemVariants} className="glass-card p-6">
-        <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-200 font-semibold font-medium mb-4">
+      <motion.div variants={itemVariants} className="glass-card p-8">
+        <h2 className="text-lg font-bold uppercase tracking-wider text-slate-300 mb-6 border-b border-white/[0.05] pb-3">
           Incident Summary
         </h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-6">
           <div>
-            <span className="text-[11px] text-slate-200 font-semibold uppercase tracking-wider">Service</span>
-            <p className="text-xl text-white mt-1">{incident.service || "N/A"}</p>
+            <span className="text-[12px] text-slate-400 font-bold uppercase tracking-wider">Service</span>
+            <p className="text-[17px] text-white font-bold mt-1">{incident.service || "N/A"}</p>
           </div>
           <div>
-            <span className="text-[11px] text-slate-200 font-semibold uppercase tracking-wider">Severity</span>
+            <span className="text-[12px] text-slate-400 font-bold uppercase tracking-wider">Severity</span>
             <div className="mt-1">
               <StatusBadge variant={severityVariant[incident.severity] || "neutral"}>
                 {incident.severity || "N/A"}
@@ -173,7 +204,7 @@ export default function ReportPage() {
             </div>
           </div>
           <div>
-            <span className="text-[11px] text-slate-200 font-semibold uppercase tracking-wider">Status</span>
+            <span className="text-[12px] text-slate-400 font-bold uppercase tracking-wider">Status</span>
             <div className="mt-1">
               <StatusBadge variant={incident.status === "resolved" ? "success" : "amber"} dot>
                 {incident.status || "Unknown"}
@@ -181,43 +212,43 @@ export default function ReportPage() {
             </div>
           </div>
           <div>
-            <span className="text-[11px] text-slate-200 font-semibold uppercase tracking-wider">Created</span>
-            <p className="text-xl text-white mt-1">{formatDate(incident.created_at)}</p>
+            <span className="text-[12px] text-slate-400 font-bold uppercase tracking-wider">Created</span>
+            <p className="text-[17px] text-white font-bold mt-1">{formatDate(incident.created_at)}</p>
           </div>
         </div>
         {incident.description && (
-          <div className="mt-4 pt-4 border-t border-white/[0.04]">
-            <span className="text-[11px] text-slate-200 font-semibold uppercase tracking-wider">Description</span>
-            <p className="text-xl text-slate-800 font-medium mt-1 leading-relaxed">{incident.description}</p>
+          <div className="mt-6 pt-6 border-t border-white/[0.05]">
+            <span className="text-[12px] text-slate-400 font-bold uppercase tracking-wider">Description</span>
+            <p className="text-[17px] text-white font-semibold mt-2 leading-relaxed">{incident.description}</p>
           </div>
         )}
       </motion.div>
 
       {/* Timeline */}
       {incident.events && incident.events.length > 0 && (
-        <motion.div variants={itemVariants} className="glass-card p-6">
-          <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-200 font-semibold font-medium mb-4">
+        <motion.div variants={itemVariants} className="glass-card p-8">
+          <h2 className="text-lg font-bold uppercase tracking-wider text-slate-300 mb-6 border-b border-white/[0.05] pb-3">
             Event Timeline
           </h2>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {incident.events.map((event, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <div className="pt-1.5">
-                  <span className={`block w-2 h-2 rounded-full ${
+              <div key={i} className="flex items-start gap-4">
+                <div className="pt-2">
+                  <span className={`block w-2.5 h-2.5 rounded-full ${
                     event.status === "completed" ? "bg-emerald-400" :
                     event.status === "failed" ? "bg-red-400" :
                     "bg-blue-400"
                   }`} />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 text-xl text-slate-200 font-semibold font-medium">
-                    <span className="font-semibold text-slate-200 uppercase tracking-wider">
+                <div className="flex-1 bg-white/[0.01] p-3 rounded-lg border border-white/[0.03]">
+                  <div className="flex items-center gap-2 text-[13px] text-slate-300">
+                    <span className="font-bold text-white uppercase tracking-wider">
                       {event.agent || "System"}
                     </span>
-                    <span>·</span>
-                    <span className="tabular-nums">{formatDate(event.timestamp)}</span>
+                    <span>•</span>
+                    <span className="tabular-nums font-mono text-slate-400">{formatDate(event.timestamp)}</span>
                   </div>
-                  <p className="text-xl text-slate-800 font-medium mt-0.5">{event.message}</p>
+                  <p className="text-[15px] text-white font-medium mt-1.5">{event.message}</p>
                 </div>
               </div>
             ))}
@@ -225,30 +256,37 @@ export default function ReportPage() {
         </motion.div>
       )}
 
-      {/* Agent Findings */}
+      {/* Detailed Agent Analysis (Replaces old Agent Findings) */}
       {(incident.agent_findings && incident.agent_findings.length > 0) && (
-        <motion.div variants={itemVariants} className="glass-card p-6">
-          <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-200 font-semibold font-medium mb-4">
-            Agent Findings
+        <motion.div variants={itemVariants} className="glass-card p-8">
+          <h2 className="text-lg font-bold uppercase tracking-wider text-slate-300 mb-6 border-b border-white/[0.05] pb-3">
+            Detailed Problem & Solution Analysis
           </h2>
-          <div className="space-y-5">
+          <div className="space-y-8">
             {incident.agent_findings.map((finding, idx) => (
-              <div key={idx} className="border-b border-white/[0.04] last:border-0 pb-4 last:pb-0">
-                <h3 className="text-xl font-semibold text-white mb-2">
+              <div key={idx} className="border-b border-white/[0.05] last:border-0 pb-8 last:pb-0">
+                <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                    <span className="text-blue-400 text-sm">{idx + 1}</span>
+                  </div>
                   {formatAgentName(finding.agent_name)}
                 </h3>
-                <p className="text-[13px] text-slate-200 leading-relaxed whitespace-pre-wrap">
-                  {finding.finding}
-                </p>
-                {finding.metadata && Object.keys(finding.metadata).length > 0 && (
-                  <ul className="mt-2 space-y-1">
-                    {Object.entries(finding.metadata).map(([key, val], i) => (
-                      <li key={i} className="flex items-start gap-2 text-[13px] text-slate-200 font-semibold font-medium">
-                        <span className="text-blue-500 shrink-0">→</span>
-                        <span className="font-semibold">{key}:</span> {typeof val === 'object' ? JSON.stringify(val) : String(val)}
-                      </li>
-                    ))}
-                  </ul>
+                {renderFindings(finding.findings)}
+                
+                {finding.recommendations && finding.recommendations.length > 0 && (
+                  <div className="mt-6 bg-blue-500/5 p-5 rounded-xl border border-blue-500/10">
+                    <h4 className="text-[12px] font-bold uppercase tracking-wider text-blue-400 mb-3">
+                      Proposed Recommendations
+                    </h4>
+                    <ul className="space-y-2">
+                      {finding.recommendations.map((rec, i) => (
+                        <li key={i} className="flex items-start gap-3 text-[15px] text-white font-medium">
+                          <span className="text-blue-500 shrink-0 mt-0.5">→</span>
+                          <span className="leading-relaxed">{rec}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </div>
             ))}
