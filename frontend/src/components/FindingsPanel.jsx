@@ -33,6 +33,46 @@ function FindingSection({ finding, isLatest }) {
     }
   }, [isLatest, finding.status]);
 
+  const renderFindings = (findingsText) => {
+    if (!findingsText) return null;
+    
+    try {
+      const parsed = JSON.parse(findingsText);
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        return (
+          <div className="space-y-3">
+            {Object.entries(parsed).map(([key, value]) => {
+              // Ignore internal/hidden keys or empty values
+              if (key.startsWith('_') || key === 'recommendations' || value === null || value === '') return null;
+              
+              const formattedKey = key
+                .split('_')
+                .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                .join(' ');
+                
+              return (
+                <div key={key} className="bg-white/[0.02] p-3 rounded-lg border border-white/[0.05]">
+                  <span className="block text-blue-400 font-bold mb-1 tracking-wide uppercase text-[10px]">{formattedKey}</span>
+                  <div className="text-white text-sm whitespace-pre-wrap leading-relaxed">
+                    {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+    } catch (e) {
+      // Fallback if it's just a regular string
+    }
+    
+    return (
+      <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap">
+        {findingsText}
+      </p>
+    );
+  };
+
   return (
     <div
       className={`
@@ -76,12 +116,10 @@ function FindingSection({ finding, isLatest }) {
             {/* Findings text */}
             {finding.findings && (
               <div className="mb-4">
-                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-200 font-medium mb-2">
-                  Findings
+                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-200 font-medium mb-3">
+                  Analysis Details
                 </h4>
-                <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap">
-                  {finding.findings}
-                </p>
+                {renderFindings(finding.findings)}
               </div>
             )}
 
