@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 from openai import AsyncOpenAI
 
-from config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, LLM_MODEL
+from config import OPENROUTER_BASE_URL, LLM_MODEL
 
 
 class BaseAgent:
@@ -24,17 +24,6 @@ class BaseAgent:
         self.role = role
         self.system_prompt = system_prompt
         self.sio = sio
-        self._client: AsyncOpenAI | None = None
-
-    @property
-    def client(self) -> AsyncOpenAI:
-        """Lazily create the OpenAI client so imports work without an API key."""
-        if self._client is None:
-            self._client = AsyncOpenAI(
-                api_key=OPENROUTER_API_KEY or "sk-placeholder",
-                base_url=OPENROUTER_BASE_URL,
-            )
-        return self._client
 
     # ── Socket.IO helper ──────────────────────────────────────────────
 
@@ -65,11 +54,21 @@ class BaseAgent:
         start = time.perf_counter_ns()
         phase = context.get("phase", "investigation")
         incident_id = context.get("incident_id", "unknown")
+        
+        # Dynamically instantiate the client using the user's OAuth API key
+        api_key = context.get("api_key")
+        if not api_key:
+            raise ValueError("Authentication error: Missing API Key in context.")
+            
+        client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=OPENROUTER_BASE_URL,
+        )
 
         try:
             await self.emit(incident_id, phase, "started", f"{self.name} is analysing the incident…")
 
-            response = await self.client.chat.completions.create(
+            response = await client.chat.completions.create(
                 model=LLM_MODEL,
                 max_tokens=4000,
                 messages=[

@@ -44,7 +44,7 @@ class Orchestrator:
 
     # ──────────────────────────────────────────────────────────────────
 
-    async def investigate(self, incident: IncidentCreate) -> IncidentReport:
+    async def investigate(self, incident: IncidentCreate, api_key: str) -> IncidentReport:
         """Run the full 5-phase investigation and return a complete report."""
         incident_id = f"INC-{int(time.time() * 1000)}"
         created_at = datetime.now(timezone.utc).isoformat()
@@ -69,6 +69,7 @@ class Orchestrator:
 
         # Base context shared with every agent
         context: dict = {
+            "api_key": api_key,
             "incident_id": incident_id,
             "description": incident.description,
             "service": incident.service,

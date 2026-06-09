@@ -66,14 +66,19 @@ async def health_check():
 
 
 # ── Incident Endpoints ──
+from fastapi import Header
+
 @app.post("/api/v1/incident", response_model=IncidentReport, tags=["incidents"])
-async def create_incident(incident: IncidentCreate):
+async def create_incident(incident: IncidentCreate, x_api_key: str = Header(None)):
     """
     Triggers the full multi-agent investigation pipeline.
     Streams real-time agent events via Socket.IO while processing.
     Returns the complete IncidentReport once all phases finish.
     """
-    report = await orchestrator.investigate(incident)
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="OpenRouter API Key is required. Please sign in.")
+        
+    report = await orchestrator.investigate(incident, api_key=x_api_key)
     incidents_db[report.incident_id] = report
     return report
 

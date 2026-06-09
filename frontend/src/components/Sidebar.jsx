@@ -1,9 +1,10 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   HiOutlineSquares2X2,
   HiOutlineBolt,
   HiOutlineChartBar,
   HiOutlineCog6Tooth,
+  HiArrowRightOnRectangle
 } from "react-icons/hi2";
 
 const navItems = [
@@ -13,10 +14,16 @@ const navItems = [
 
 export default function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isActive = (path) => {
     if (path === "/dashboard") return location.pathname === "/dashboard" || location.pathname === "/";
     return location.pathname.startsWith(path);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("openrouter_api_key");
+    navigate("/login");
   };
 
   return (
@@ -75,15 +82,15 @@ export default function Sidebar() {
 
       {/* Bottom Section */}
       <div className="flex flex-col items-center gap-2 pb-5 w-full px-3">
-        <button className="w-full max-w-[48px] aspect-square rounded-xl flex items-center justify-center text-slate-200 font-medium hover:text-white hover:bg-white/[0.03] transition-all duration-200 group relative">
-          <HiOutlineCog6Tooth className="w-[22px] h-[22px]" />
+        <button 
+          onClick={handleLogout}
+          className="w-full max-w-[48px] aspect-square rounded-xl flex items-center justify-center text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200 group relative"
+        >
+          <HiArrowRightOnRectangle className="w-[22px] h-[22px]" />
           <span className="absolute left-full ml-3 px-2.5 py-1 rounded-md bg-[#1a2340] text-base font-medium text-white font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 shadow-lg border border-white/[0.08] z-50">
-            Settings
+            Sign Out
           </span>
         </button>
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-amber-500 flex items-center justify-center text-[11px] font-bold text-white font-bold ring-2 ring-white/[0.06] cursor-pointer hover:ring-blue-500/30 transition-all duration-200">
-          S
-        </div>
       </div>
     </aside>
   );

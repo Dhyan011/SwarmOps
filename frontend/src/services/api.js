@@ -8,6 +8,23 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+// Interceptor to attach the OpenRouter OAuth API Key
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("openrouter_api_key");
+  if (token) {
+    config.headers["X-API-Key"] = token;
+  }
+  return config;
+});
+
+export const exchangeOAuthCode = async (code) => {
+  // Exchange code for API key directly with OpenRouter
+  const response = await axios.post("https://openrouter.ai/api/v1/auth/keys", {
+    code: code
+  });
+  return response.data; // Should contain the generated key
+};
+
 export const createIncident = (data) => api.post("/api/v1/incident", data);
 export const getIncidents = () => api.get("/api/v1/incidents");
 export const getIncident = (id) => api.get(`/api/v1/incidents/${id}`);
