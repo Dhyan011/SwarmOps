@@ -3,7 +3,7 @@ SwarmOps — FastAPI Entry Point
 Production multi-agent incident response system powered by OpenRouter LLMs.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 import os
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -13,11 +13,10 @@ import socketio
 from config import OPENROUTER_API_KEY
 from models.schemas import IncidentCreate, IncidentReport
 from agents.orchestrator import Orchestrator
+from db import db
 
 from datetime import datetime, timezone
-
-# ── In-memory incident store ──
-incidents_db: dict[str, IncidentReport] = {}
+from pydantic import BaseModel
 
 # ── App Initialisation ──
 app = FastAPI(
@@ -42,17 +41,14 @@ socket_app = socketio.ASGIApp(sio, app)
 # ── Orchestrator (created once, shared across requests) ──
 orchestrator = Orchestrator(sio)
 
-
 # ── Socket.IO events ──
 @sio.event
 async def connect(sid, environ):
     print(f"Client connected: {sid}")
 
-
 @sio.event
 async def disconnect(sid):
     print(f"Client disconnected: {sid}")
-
 
 # ── Health Check ──
 @app.get("/health", tags=["system"])
@@ -64,9 +60,7 @@ async def health_check():
         "llm_configured": bool(OPENROUTER_API_KEY),
     }
 
-
 # ── Incident Endpoints ──
-from fastapi import Header
 
 @app.post("/api/v1/incident", response_model=IncidentReport, tags=["incidents"])
 async def create_incident(incident: IncidentCreate, x_api_key: str = Header(None)):
@@ -79,46 +73,35 @@ async def create_incident(incident: IncidentCreate, x_api_key: str = Header(None
         raise HTTPException(status_code=401, detail="OpenRouter API Key is required. Please sign in.")
         
     report = await orchestrator.investigate(incident, api_key=x_api_key)
-    incidents_db[report.incident_id] = report
+    # Save to persistent database
+    db.set(report.incident_id, report)
     return report
-
 
 @app.get("/api/v1/incidents", tags=["incidents"])
 async def list_incidents():
-    """Returns all stored incidents, most recent first."""
-    return list(reversed(incidents_db.values()))
-
+    """Returns all stored incidents from the persistent database."""
+    return db.get_all()
 
 @app.get("/api/v1/incidents/{incident_id}", response_model=IncidentReport, tags=["incidents"])
 async def get_incident(incident_id: str):
     """Returns a specific incident by ID."""
-    report = incidents_db.get(incident_id)
+    report = db.get(incident_id)
     if report is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
     return report
-
-
-from pydantic import BaseModel
 
 class ActionRequest(BaseModel):
     action: str
 
 @app.post("/api/v1/incidents/{incident_id}/action", tags=["incidents"])
 async def handle_incident_action(incident_id: str, payload: ActionRequest):
-    if incident_id not in incidents_db:
+    report = db.get(incident_id)
+    if report is None:
         raise HTTPException(status_code=404, detail="Incident not found")
         
-    incident = incidents_db[incident_id]
-    
     if payload.action == "approve":
-        incident.status = "deployed"
-        
-        # Determine patch
-        patch_content = incident.code_patch
-        
-        # We don't have target_url on the IncidentReport directly, 
-        # so for simulation, we'll just pass a placeholder or get from db if we mapped it.
+        report.status = "deployed"
+        patch_content = report.code_patch
         target_url = "https://github.com/simulation/repo"
         
         from tools.github_pr import create_github_pr
@@ -126,13 +109,13 @@ async def handle_incident_action(incident_id: str, payload: ActionRequest):
             target_url=target_url,
             patch_content=patch_content,
             incident_id=incident_id,
-            title=f"SwarmOps Fix: {incident.description[:50]}",
-            description=incident.root_cause,
+            title=f"SwarmOps Fix: {report.description[:50]}",
+            description=report.root_cause,
             sio=sio
         )
         
     elif payload.action == "reject":
-        incident.status = "rejected"
+        report.status = "rejected"
         message = "Proposed fix was rejected by operator."
         await sio.emit("agent_event", {
             "incident_id": incident_id,
@@ -146,7 +129,9 @@ async def handle_incident_action(incident_id: str, payload: ActionRequest):
     else:
         raise HTTPException(status_code=400, detail="Invalid action")
         
-    return {"status": incident.status, "message": message}
+    # Update persistent database
+    db.set(incident_id, report)
+    return {"status": report.status, "message": message}
 
 
 # ── Serve Frontend ──
@@ -167,7 +152,6 @@ async def serve_frontend(full_path: str):
     return FileResponse(os.path.join(dist_path, "index.html"))
 
 # ── Uvicorn Runner ──
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:socket_app", host="0.0.0.0", port=8000, reload=True)

@@ -90,9 +90,22 @@ export default function LoginPage() {
             >
               Sign In with OpenRouter
             </button>
-            <p className="text-xs text-slate-500 mt-4">
+            <p className="text-xs text-slate-500 mt-4 mb-6">
               If you don't have an account, you can create one instantly on the next page.
             </p>
+
+            {/* Privacy Guarantee Box */}
+            <div className="mt-8 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-left">
+              <div className="flex items-center gap-2 mb-2">
+                <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <span className="font-bold text-emerald-400 text-sm tracking-wide uppercase">Privacy Guaranteed</span>
+              </div>
+              <p className="text-[13px] text-emerald-100/70 leading-relaxed font-medium">
+                We do not collect or store your personal information. Your API key is stored strictly within your browser's local database and is never saved on our servers.
+              </p>
+            </div>
           </div>
         )}
       </motion.div>
