@@ -14,10 +14,6 @@ SYSTEM_PROMPT = (
     "based on the incident description, explicitly state 'No bugs found' in the root_cause "
     "and provide a brief architectural summary of the project instead. "
     "Return JSON with: root_cause, confidence, evidence_chain, contributing_factors, timeline."
-). If no bugs or issues are found in the codebase "
-    "based on the incident description, explicitly state 'No bugs found' in the root_cause "
-    "and provide a brief architectural summary of the project instead. "
-    "Return JSON with: root_cause, confidence, evidence_chain, contributing_factors, timeline."
 )
 
 

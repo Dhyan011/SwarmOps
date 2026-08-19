@@ -15,8 +15,6 @@ SYSTEM_PROMPT = (
     "code_patch empty. Return JSON with: fix_description, "
     "code_patch (as a unified diff string), config_changes, deployment_steps, "
     "rollback_plan."
-), config_changes, deployment_steps, "
-    "rollback_plan."
 )
 
 

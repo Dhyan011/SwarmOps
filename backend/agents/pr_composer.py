@@ -6,7 +6,6 @@ SYSTEM_PROMPT = (
     "closes historical gaps (from past_patterns), and improves system robustness. "
     "Return JSON with: pr_title, pr_body (markdown format), branch_name_suggestion, "
     "commit_message_suggestion."
-), risk_level."
 )
 
 class PRComposerAgent(BaseAgent):

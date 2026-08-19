@@ -12,8 +12,6 @@ SYSTEM_PROMPT = (
     "Return JSON with: "
     "validation_status (approved/rejected/needs_review), safety_score, "
     "potential_side_effects, completeness, final_recommendation."
-), safety_score, "
-    "potential_side_effects, completeness, final_recommendation."
 )
 
 

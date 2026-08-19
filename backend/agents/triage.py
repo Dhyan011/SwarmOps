@@ -14,11 +14,6 @@ SYSTEM_PROMPT = (
     "set the severity to 'low' and type to 'informational'. "
     "Return JSON with: severity_assessment, incident_type, "
     "affected_components, blast_radius, priority_score."
-), identify affected components, "
-    "estimate blast radius. If the incident description and code reveal no actual bugs, "
-    "set the severity to 'low' and type to 'informational'. "
-    "Return JSON with: severity_assessment, incident_type, "
-    "affected_components, blast_radius, priority_score."
 )
 
 

@@ -6,7 +6,6 @@ SYSTEM_PROMPT = (
     "Incorporate past_patterns to ensure previous testing gaps are closed. "
     "Return JSON with: test_description, test_code (ready to run), "
     "edge_cases_covered, execution_instructions."
-), confidence."
 )
 
 class TestGeneratorAgent(BaseAgent):
