@@ -2,7 +2,6 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-dist/
 build/
 .venv/
 venv/
@@ -18,5 +17,13 @@ env/
 *.swo
 .DS_Store
 
-# Node (future frontend)
+# Node
 node_modules/
+
+# Build artifacts
+dist/
+frontend/dist/
+
+# Replit
+.replit
+replit.nix
