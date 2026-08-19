@@ -1,10 +1,9 @@
 # Stage 1: Build React Frontend
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
-COPY frontend/package*.json ./
-RUN npm install
+# Copy ALL frontend source first — this ensures any src change busts the install cache
 COPY frontend/ .
-RUN npm run build
+RUN npm install && npm run build
 
 # Stage 2: Build Python Backend
 FROM python:3.11-slim
@@ -26,7 +25,7 @@ COPY backend/ .
 # Copy built frontend from Stage 1
 COPY --from=frontend-builder /app/dist ./dist
 
-# Expose port (Render uses PORT env variable or defaults to 10000/8000 depending on config, but standard is 8000)
+# Expose port
 ENV PORT=8000
 EXPOSE 8000
 
