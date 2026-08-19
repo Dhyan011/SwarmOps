@@ -1,4 +1,4 @@
-import { Check, X } from "lucide-react";
+import { HiOutlineCheck, HiOutlineXMark } from "react-icons/hi2";
 
 const variants = {
   critical: "bg-rose-500/15 text-rose-400 border border-rose-500/20",
@@ -29,8 +29,8 @@ export default function StatusBadge({ variant = "neutral", children, className =
       {isRunning && (
         <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse-dot" />
       )}
-      {isDeployed && <Check size={12} className="text-emerald-400" />}
-      {isRejected && <X size={12} className="text-rose-400" />}
+      {isDeployed && <HiOutlineCheck className="w-3 h-3 text-emerald-400" />}
+      {isRejected && <HiOutlineXMark className="w-3 h-3 text-rose-400" />}
       
       {!isRunning && !isDeployed && !isRejected && variant !== "neutral" && (
         <span

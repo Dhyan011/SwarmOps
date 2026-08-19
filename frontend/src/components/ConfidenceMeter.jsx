@@ -1,5 +1,5 @@
 import React from "react";
-import { Info } from "lucide-react";
+import { HiOutlineInformationCircle } from "react-icons/hi2";
 
 export default function ConfidenceMeter({ value = 0 }) {
   const score = Math.max(0, Math.min(100, value));
@@ -27,7 +27,7 @@ export default function ConfidenceMeter({ value = 0 }) {
       <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-semibold">
         <span className="text-slate-400 flex items-center gap-1">
           Confidence
-          <Info size={10} className="opacity-50" />
+          <HiOutlineInformationCircle className="w-2.5 h-2.5 opacity-50" />
         </span>
         <span className={textColor}>{score}%</span>
       </div>
