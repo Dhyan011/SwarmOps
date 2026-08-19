@@ -18,9 +18,48 @@ async def fetch_url_context(url: str, mode: str = "full", max_tokens_approx: int
     is_github = "github.com" in url
     
     if is_github:
+        if "/blob/" in url or "/tree/" in url:
+            return await fetch_github_path(url, max_tokens_approx)
         return await fetch_github_repo(url, mode, max_tokens_approx)
     else:
         return await fetch_website(url)
+
+async def fetch_github_path(url: str, max_chars: int = 30000) -> str:
+    """Fetches a specific file or directory using the GitHub Contents API."""
+    import base64
+    from config import GITHUB_TOKEN
+    
+    parts = url.rstrip("/").split("/")
+    if len(parts) < 7:
+        return "Invalid GitHub path URL format."
+        
+    user, repo = parts[3], parts[4]
+    # url format: https://github.com/user/repo/blob/main/path/to/file
+    path = "/".join(parts[7:])
+    
+    api_url = f"https://api.github.com/repos/{user}/{repo}/contents/{path}"
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    if GITHUB_TOKEN:
+        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+        
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(api_url, headers=headers, follow_redirects=True, timeout=15.0)
+            response.raise_for_status()
+            data = response.json()
+            
+            if isinstance(data, dict) and data.get("type") == "file":
+                content = base64.b64decode(data["content"]).decode("utf-8")
+                return f"--- File: {path} ---\n{content[:max_chars]}"
+            elif isinstance(data, list):
+                # It's a directory
+                result = [f"--- Directory: {path} ---"]
+                for item in data[:20]: # Limit files
+                    result.append(f"{item['type']}: {item['path']}")
+                return "\n".join(result)
+            return str(data)
+    except Exception as e:
+        return f"Failed to fetch path {path}: {str(e)}"
 
 async def fetch_website(url: str) -> str:
     try:

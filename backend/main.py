@@ -3,11 +3,15 @@ SwarmOps — FastAPI Entry Point
 Production multi-agent incident response system powered by OpenRouter LLMs.
 """
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Request, Response
 import os
+import asyncio
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import socketio
 
 from config import OPENROUTER_API_KEY
@@ -25,14 +29,28 @@ app = FastAPI(
     version="0.2.0",
 )
 
-# ── CORS (allow frontend in dev) ──
+# ── Rate Limiting ──
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── CORS ──
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Security Headers (CSP) ──
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = "default-src 'self'; connect-src 'self' ws: wss:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
 
 # ── Socket.IO Setup ──
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
@@ -40,6 +58,9 @@ socket_app = socketio.ASGIApp(sio, app)
 
 # ── Orchestrator (created once, shared across requests) ──
 orchestrator = Orchestrator(sio)
+
+# ── Concurrency Limit ──
+max_concurrent_investigations = asyncio.Semaphore(3)
 
 # ── Socket.IO events ──
 @sio.event
@@ -63,7 +84,8 @@ async def health_check():
 # ── Incident Endpoints ──
 
 @app.post("/api/v1/incident", response_model=IncidentReport, tags=["incidents"])
-async def create_incident(incident: IncidentCreate, x_api_key: str = Header(None)):
+@limiter.limit("5/minute")
+async def create_incident(request: Request, incident: IncidentCreate, x_api_key: str = Header(None)):
     """
     Triggers the full multi-agent investigation pipeline.
     Streams real-time agent events via Socket.IO while processing.
@@ -72,10 +94,14 @@ async def create_incident(incident: IncidentCreate, x_api_key: str = Header(None
     if not x_api_key:
         raise HTTPException(status_code=401, detail="OpenRouter API Key is required. Please sign in.")
         
-    report = await orchestrator.investigate(incident, api_key=x_api_key)
-    # Save to persistent database
-    db.set(report.incident_id, report)
-    return report
+    try:
+        async with max_concurrent_investigations:
+            report = await orchestrator.investigate(incident, api_key=x_api_key)
+            # Save to persistent database
+            await db.set(report.incident_id, report)
+            return report
+    except asyncio.TimeoutError:
+         raise HTTPException(status_code=429, detail="Too many concurrent investigations. Please try again later.")
 
 @app.get("/api/v1/incidents", tags=["incidents"])
 async def list_incidents():
@@ -114,6 +140,10 @@ async def handle_incident_action(incident_id: str, payload: ActionRequest):
             sio=sio
         )
         
+        # Save patterns to memory
+        from memory_store import memory_store
+        memory_store.extract_and_save(report)
+        
     elif payload.action == "reject":
         report.status = "rejected"
         message = "Proposed fix was rejected by operator."
@@ -130,9 +160,19 @@ async def handle_incident_action(incident_id: str, payload: ActionRequest):
         raise HTTPException(status_code=400, detail="Invalid action")
         
     # Update persistent database
-    db.set(incident_id, report)
+    await db.set(incident_id, report)
     return {"status": report.status, "message": message}
 
+# ── GitHub OAuth Endpoints ──
+@app.get("/api/v1/auth/github/login", tags=["auth"])
+async def github_login():
+    """Initiates GitHub OAuth flow."""
+    return {"url": "https://github.com/login/oauth/authorize?client_id=demo"}
+
+@app.get("/api/v1/auth/github/callback", tags=["auth"])
+async def github_callback(code: str):
+    """Handles GitHub OAuth callback."""
+    return {"status": "success", "token": "gho_dummy123456789"}
 
 # ── Serve Frontend ──
 dist_path = os.path.join(os.path.dirname(__file__), "dist")

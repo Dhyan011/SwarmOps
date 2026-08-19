@@ -3,16 +3,23 @@ import { HiOutlineChevronRight } from "react-icons/hi2";
 import StatusBadge from "./StatusBadge";
 
 const severityMap = {
-  low: "info",
-  medium: "warning",
-  high: "danger",
+  low: "low",
+  medium: "medium",
+  high: "high",
   critical: "critical",
 };
 
+const severityBorder = {
+  low: "severity-border-low",
+  medium: "severity-border-medium",
+  high: "severity-border-high",
+  critical: "severity-border-critical",
+};
+
 const statusMap = {
-  investigating: "amber",
-  resolved: "success",
-  failed: "danger",
+  investigating: "running",
+  resolved: "deployed",
+  failed: "rejected",
   pending: "neutral",
 };
 
@@ -44,12 +51,12 @@ export default function IncidentCard({ incident, delay = 0 }) {
   return (
     <div
       onClick={() => navigate(`/incident/${incident_id}`)}
-      className="
+      className={`
         glass-card group cursor-pointer
         px-5 py-4 flex items-center gap-4
-        hover:border-blue-500/20 hover:shadow-[0_0_30px_rgba(34,211,238,0.06)]
-        animate-fade-in
-      "
+        animate-fade-in card-3d
+        ${severityBorder[severity] || "border-l-transparent"}
+      `}
       style={{ animationDelay: `${delay}ms` }}
     >
       {/* Severity indicator */}
@@ -62,13 +69,13 @@ export default function IncidentCard({ incident, delay = 0 }) {
       {/* Main content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-base font-mono text-blue-400/80">
+          <span className="text-base font-mono text-cyan-400">
             #{incident_id?.slice(0, 8)}
           </span>
-          <span className="text-slate-200">·</span>
-          <span className="text-base text-slate-200 font-medium">{service}</span>
+          <span className="text-slate-400">·</span>
+          <span className="text-base text-text-main font-medium">{service}</span>
         </div>
-        <p className="text-base text-white truncate leading-relaxed">
+        <p className="text-base text-slate-300 truncate leading-relaxed">
           {description}
         </p>
       </div>
@@ -76,16 +83,16 @@ export default function IncidentCard({ incident, delay = 0 }) {
       {/* Right side */}
       <div className="flex items-center gap-3 shrink-0">
         <div className="text-right hidden sm:block">
-          <StatusBadge variant={statusMap[status] || "neutral"} dot>
-            {status}
+          <StatusBadge variant={statusMap[status] || "neutral"}>
+            {status === "investigating" ? "RUNNING" : status === "resolved" ? "DEPLOYED" : status}
           </StatusBadge>
           {created_at && (
-            <p className="text-[11px] text-slate-200 mt-1.5">
+            <p className="text-[11px] text-slate-400 mt-1.5">
               {timeAgo(created_at)}
             </p>
           )}
         </div>
-        <HiOutlineChevronRight className="w-4 h-4 text-slate-200 group-hover:text-blue-400 transition-colors duration-200" />
+        <HiOutlineChevronRight className="w-5 h-5 text-slate-400 group-hover:text-cyan-400 transition-colors duration-200" />
       </div>
     </div>
   );

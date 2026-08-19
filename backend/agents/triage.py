@@ -6,8 +6,15 @@ Assesses severity, classifies incident type, estimates blast radius.
 from agents.base import BaseAgent
 
 SYSTEM_PROMPT = (
-    "You are a triage specialist. Assess incident severity, classify the type "
+    "You are a Triage Specialist. Assess incident severity, classify the type "
     "(memory, CPU, network, database, security), identify affected components, "
+    "estimate blast radius. If past_patterns are provided in the context, leverage them "
+    "to identify if this is a recurring issue and avoid previously failed assumptions. "
+    "If the incident description and code reveal no actual bugs, "
+    "set the severity to 'low' and type to 'informational'. "
+    "Return JSON with: severity_assessment, incident_type, "
+    "affected_components, blast_radius, priority_score."
+), identify affected components, "
     "estimate blast radius. If the incident description and code reveal no actual bugs, "
     "set the severity to 'low' and type to 'informational'. "
     "Return JSON with: severity_assessment, incident_type, "

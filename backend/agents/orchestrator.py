@@ -23,8 +23,12 @@ from agents.trace import TraceAgent
 from agents.security import SecurityAgent
 from agents.root_cause import RootCauseAgent
 from agents.fix_generator import FixGeneratorAgent
+from agents.test_generator import TestGeneratorAgent
 from agents.validation import ValidationAgent
+from agents.pr_composer import PRComposerAgent
 from tools.github_fetcher import fetch_url_context
+from tools.similar_incident import find_similar_incident
+from memory_store import memory_store
 
 
 class Orchestrator:
@@ -41,7 +45,9 @@ class Orchestrator:
         self.security_agent = SecurityAgent(sio)
         self.root_cause_agent = RootCauseAgent(sio)
         self.fix_generator = FixGeneratorAgent(sio)
+        self.test_generator = TestGeneratorAgent(sio)
         self.validation_agent = ValidationAgent(sio)
+        self.pr_composer = PRComposerAgent(sio)
 
     # ──────────────────────────────────────────────────────────────────
 
@@ -79,6 +85,20 @@ class Orchestrator:
             "target_url_context": url_context,
             "analysis_mode": getattr(incident, "analysis_mode", "full")
         }
+
+        # ── Pre-Phase: Similar Incident Check ────────────────────────
+        similar = await find_similar_incident(incident.description, incident.service)
+        similar_incident_id = ""
+        if similar:
+            similar_incident_id = similar["incident_id"]
+            await self._emit_phase(incident_id, "pre_triage", "completed", f"Found similar past incident: {similar_incident_id}")
+            context["similar_incident"] = similar
+            
+        # ── Pre-Phase: Memory Injection ──────────────────────────────
+        past_patterns = memory_store.get_past_patterns(incident.service)
+        if past_patterns:
+            context["past_patterns"] = past_patterns
+            await self._emit_phase(incident_id, "memory", "completed", f"Injected {len(past_patterns)} past patterns for {incident.service}")
 
         # ── Phase 1: Triage ───────────────────────────────────────────
         context["phase"] = "triage"
@@ -130,6 +150,12 @@ class Orchestrator:
         agent_findings.append(self._to_finding(self.root_cause_agent, root_cause_result))
         context["root_cause"] = root_cause_result
         await self._emit_phase(incident_id, "root_cause", "completed", "Root cause analysis completed")
+        
+        confidence = self._parse_confidence(root_cause_result.get("confidence", 0))
+        auto_escalated = False
+        if confidence < 50:
+            auto_escalated = True
+            await self._emit_phase(incident_id, "root_cause", "warning", f"Confidence is low ({confidence}%). Auto-escalating incident.")
 
         # ── Phase 4: Fix Generation ───────────────────────────────────
         context["phase"] = "fix_generation"
@@ -140,6 +166,15 @@ class Orchestrator:
         context["proposed_fix"] = fix_result
         await self._emit_phase(incident_id, "fix_generation", "completed", "Fix generation completed")
 
+        # ── Phase 4.5: Test Generation ────────────────────────────────
+        context["phase"] = "test_generation"
+        await self._emit_phase(incident_id, "test_generation", "started", "Test generation initiated")
+        test_result = await self.test_generator.run(context)
+        phases.append({"phase": "test_generation", "status": "completed", "result": test_result})
+        agent_findings.append(self._to_finding(self.test_generator, test_result))
+        context["tests"] = test_result
+        await self._emit_phase(incident_id, "test_generation", "completed", "Test generation completed")
+
         # ── Phase 5: Validation ───────────────────────────────────────
         context["phase"] = "validation"
         await self._emit_phase(incident_id, "validation", "started", "Validation phase initiated")
@@ -147,6 +182,19 @@ class Orchestrator:
         phases.append({"phase": "validation", "status": "completed", "result": validation_result})
         agent_findings.append(self._to_finding(self.validation_agent, validation_result))
         await self._emit_phase(incident_id, "validation", "completed", "Validation phase completed")
+
+        validation_status = validation_result.get("validation_status", "approved")
+
+        if validation_status != "rejected":
+            # ── Phase 6: PR Composer ──────────────────────────────────────
+            context["phase"] = "pr_composer"
+            await self._emit_phase(incident_id, "pr_composer", "started", "PR composing initiated")
+            pr_result = await self.pr_composer.run(context)
+            phases.append({"phase": "pr_composer", "status": "completed", "result": pr_result})
+            agent_findings.append(self._to_finding(self.pr_composer, pr_result))
+            await self._emit_phase(incident_id, "pr_composer", "completed", "PR composing completed")
+        else:
+            pr_result = {}
 
         # ── Build Report ──────────────────────────────────────────────
         resolution_ms = (time.perf_counter_ns() - pipeline_start) // 1_000_000
@@ -156,17 +204,32 @@ class Orchestrator:
             description=incident.description,
             service=incident.service,
             severity=incident.severity,
-            status="resolved",
+            status="validation_failed" if validation_status == "rejected" else "resolved",
             created_at=created_at,
             phases=phases,
             agent_findings=agent_findings,
             root_cause=root_cause_result.get("root_cause", "Unable to determine"),
-            confidence=self._parse_confidence(root_cause_result.get("confidence", 0)),
+            confidence=confidence,
             recommended_fix=fix_result.get("fix_description", "No fix generated"),
             code_patch=fix_result.get("code_patch", ""),
-            validation_result=validation_result.get("validation_status", "unknown"),
+            validation_result=json.dumps(validation_result) if validation_status == "rejected" else validation_result.get("validation_status", "unknown"),
             resolution_time_ms=resolution_ms,
+            auto_escalated=auto_escalated,
+            similar_incident_id=similar_incident_id,
+            pr_title=pr_result.get("pr_title", ""),
+            pr_body=pr_result.get("pr_body", "")
         )
+
+        from db import db
+        await db.set(incident_id, report)
+
+        if validation_status == "rejected":
+            await self.sio.emit("investigation_complete", {
+                "incident_id": incident_id,
+                "status": "validation_failed",
+                "message": "Validation agent rejected the fix. Review findings before proceeding."
+            })
+            return report
 
         await self.sio.emit("investigation_complete", report.model_dump())
         return report

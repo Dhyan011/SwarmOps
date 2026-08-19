@@ -1,27 +1,42 @@
-import { useMemo } from "react";
+import React from "react";
+import { Info } from "lucide-react";
 
-export default function ConfidenceMeter({ value = 0, size = "default" }) {
-  const clampedValue = Math.max(0, Math.min(100, value));
+export default function ConfidenceMeter({ value = 0 }) {
+  const score = Math.max(0, Math.min(100, value));
+  
+  // 0–40% → Rose
+  // 40–65% → Amber
+  // 65–85% → Indigo
+  // 85–100% → Emerald
+  let colorClass = "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.4)]";
+  let textColor = "text-emerald-400";
 
-  const color = useMemo(() => {
-    if (clampedValue >= 70) return { bar: "bg-emerald-400", text: "text-emerald-400", glow: "shadow-emerald-400/20" };
-    if (clampedValue >= 30) return { bar: "bg-amber-400", text: "text-amber-400", glow: "shadow-amber-400/20" };
-    return { bar: "bg-red-400", text: "text-red-400", glow: "shadow-red-400/20" };
-  }, [clampedValue]);
-
-  const heightClass = size === "sm" ? "h-1.5" : "h-2.5";
+  if (score < 40) {
+    colorClass = "bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.4)]";
+    textColor = "text-rose-400";
+  } else if (score < 65) {
+    colorClass = "bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]";
+    textColor = "text-amber-400";
+  } else if (score < 85) {
+    colorClass = "bg-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.4)]";
+    textColor = "text-indigo-400";
+  }
 
   return (
-    <div className="flex items-center gap-3 w-full">
-      <div className={`flex-1 ${heightClass} rounded-full bg-slate-900/40 overflow-hidden`}>
+    <div className="flex flex-col gap-1.5 min-w-[120px]">
+      <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-semibold">
+        <span className="text-slate-400 flex items-center gap-1">
+          Confidence
+          <Info size={10} className="opacity-50" />
+        </span>
+        <span className={textColor}>{score}%</span>
+      </div>
+      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full ${color.bar} transition-all duration-1000 ease-out`}
-          style={{ width: `${clampedValue}%` }}
+          className={`h-full rounded-full transition-all duration-1000 ease-out ${colorClass}`}
+          style={{ width: `${Math.max(5, score)}%` }}
         />
       </div>
-      <span className={`text-base font-semibold tabular-nums ${color.text} min-w-[3rem] text-right`}>
-        {clampedValue}%
-      </span>
     </div>
   );
 }

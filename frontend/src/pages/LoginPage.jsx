@@ -1,113 +1,242 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { motion } from "framer-motion";
-import { exchangeOAuthCode } from "../services/api";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [error, setError] = useState(null);
+  const [provider, setProvider] = useState(null);
+  const [keys, setKeys] = useState({ gemini: "", groq: "", ollama: "http://localhost:11434" });
+  const [githubConnected, setGithubConnected] = useState(false);
 
-  useEffect(() => {
-    // Check if we just returned from OpenRouter with a code
-    const params = new URLSearchParams(location.search);
-    const code = params.get("code");
+  const handleProviderSelect = (p) => setProvider(p);
+  const handleKeyChange = (p, val) => setKeys({ ...keys, [p]: val });
+  
+  const canContinue = provider !== null && (
+    (provider === "gemini" && keys.gemini.length > 10) ||
+    (provider === "groq" && keys.groq.length > 10) ||
+    provider === "openrouter" ||
+    provider === "ollama"
+  );
 
-    if (code) {
-      setIsAuthenticating(true);
-      
-      exchangeOAuthCode(code)
-        .then((data) => {
-          if (data && data.key) {
-            // Save the key and redirect to dashboard
-            localStorage.setItem("openrouter_api_key", data.key);
-            // Clean up URL and navigate
-            window.history.replaceState({}, document.title, "/");
-            navigate("/dashboard");
-          } else {
-            throw new Error("Invalid response from OpenRouter");
-          }
-        })
-        .catch((err) => {
-          console.error("OAuth Exchange Failed:", err);
-          setError("Failed to generate API Key. Please try again.");
-          setIsAuthenticating(false);
-        });
-    } else {
-      // If no code, check if they are already logged in
-      const existingKey = localStorage.getItem("openrouter_api_key");
-      if (existingKey) {
-        navigate("/dashboard");
-      }
-    }
-  }, [location, navigate]);
-
-  const handleLogin = () => {
-    // Redirect to OpenRouter OAuth flow
-    // Ensure callback URL matches the current origin
-    const callbackUrl = window.location.origin + "/login";
-    window.location.href = `https://openrouter.ai/auth?callback_url=${encodeURIComponent(callbackUrl)}`;
+  const handleContinue = () => {
+    if (!canContinue) return;
+    // Mock save logic
+    if (provider === "gemini") localStorage.setItem("gemini_key", keys.gemini);
+    if (provider === "groq") localStorage.setItem("groq_key", keys.groq);
+    navigate("/dashboard");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-6 w-full relative overflow-hidden">
+      {/* 3D background sphere simulated with a blurred orb */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none -z-10 animate-spin-slow" />
+      
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-card max-w-md w-full p-8 text-center"
+        className="max-w-4xl w-full"
       >
-        <div className="mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-400 mx-auto mb-6 flex items-center justify-center shadow-[0_0_40px_-10px_rgba(34,211,238,0.5)]">
+        <div className="text-center mb-10">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 mx-auto mb-6 flex items-center justify-center shadow-glow-indigo">
             <span className="text-white text-3xl font-black tracking-tighter">S</span>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">SwarmOps</h1>
-          <p className="text-slate-300">Autonomous Incident Response</p>
+          <h1 className="text-4xl font-black text-text-main tracking-tight mb-2">Configure SwarmOps</h1>
+          <p className="text-slate-400">Step 1 of 2 — Choose Your AI Engine</p>
         </div>
 
-        {isAuthenticating ? (
-          <div className="py-8">
-            <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-white font-medium">Authenticating securely...</p>
-            <p className="text-sm text-slate-400 mt-2">Generating your API key.</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <p className="text-slate-200 text-sm leading-relaxed">
-              To launch AI investigations, SwarmOps requires connection to an OpenRouter account.
-              Your personal credits will be used for your runs.
-            </p>
-
-            {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                {error}
+        {/* Provider Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+          
+          {/* Gemini */}
+          <div 
+            onClick={() => handleProviderSelect("gemini")}
+            className={`glass-card p-6 cursor-pointer transition-all duration-300 card-3d
+              ${provider === "gemini" ? "border-indigo-500 shadow-glow-indigo" : "border-white/10 hover:border-indigo-500/50"}
+            `}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center">
+                  <span className="text-indigo-400 text-xl">🔷</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Google Gemini</h3>
+                  <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">FREE TIER</span>
+                </div>
               </div>
-            )}
-
-            <button
-              onClick={handleLogin}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-6 rounded-xl transition-all duration-200 shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] hover:shadow-[0_0_30px_-5px_rgba(37,99,235,0.6)]"
-            >
-              Sign In with OpenRouter
-            </button>
-            <p className="text-xs text-slate-500 mt-4 mb-6">
-              If you don't have an account, you can create one instantly on the next page.
-            </p>
-
-            {/* Privacy Guarantee Box */}
-            <div className="mt-8 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-left">
-              <div className="flex items-center gap-2 mb-2">
-                <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                <span className="font-bold text-emerald-400 text-sm tracking-wide uppercase">Privacy Guaranteed</span>
-              </div>
-              <p className="text-[13px] text-emerald-100/70 leading-relaxed font-medium">
-                We do not collect or store your personal information. Your API key is stored strictly within your browser's local database and is never saved on our servers.
-              </p>
             </div>
+            <ul className="text-sm text-slate-400 mb-6 space-y-1">
+              <li>• ~166 runs / day free</li>
+              <li>• 1M token context window</li>
+              <li>• Best for large repositories</li>
+            </ul>
+            <AnimatePresence>
+              {provider === "gemini" && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="pt-4 border-t border-white/10">
+                  <input 
+                    type="password" 
+                    placeholder="Enter Gemini API Key..." 
+                    value={keys.gemini}
+                    onChange={(e) => handleKeyChange("gemini", e.target.value)}
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-xs text-indigo-400 hover:text-indigo-300 mt-2 inline-block">Get Free Key ↗</a>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        )}
+
+          {/* Groq */}
+          <div 
+            onClick={() => handleProviderSelect("groq")}
+            className={`glass-card p-6 cursor-pointer transition-all duration-300 card-3d
+              ${provider === "groq" ? "border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)]" : "border-white/10 hover:border-amber-500/50"}
+            `}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                  <span className="text-amber-400 text-xl">🟠</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Groq</h3>
+                  <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">FREE TIER</span>
+                </div>
+              </div>
+            </div>
+            <ul className="text-sm text-slate-400 mb-6 space-y-1">
+              <li>• ~55 runs / day free</li>
+              <li>• Ultra-fast Llama 3.3 70B</li>
+              <li>• Ideal for rapid triage</li>
+            </ul>
+            <AnimatePresence>
+              {provider === "groq" && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="pt-4 border-t border-white/10">
+                  <input 
+                    type="password" 
+                    placeholder="Enter Groq API Key..." 
+                    value={keys.groq}
+                    onChange={(e) => handleKeyChange("groq", e.target.value)}
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-amber-500"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="text-xs text-amber-400 hover:text-amber-300 mt-2 inline-block">Get Free Key ↗</a>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* OpenRouter */}
+          <div 
+            onClick={() => handleProviderSelect("openrouter")}
+            className={`glass-card p-6 cursor-pointer transition-all duration-300 card-3d
+              ${provider === "openrouter" ? "border-violet-500 shadow-glow-violet" : "border-white/10 hover:border-violet-500/50"}
+            `}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center">
+                  <span className="text-violet-400 text-xl">⚫</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">OpenRouter</h3>
+                  <span className="text-xs font-semibold text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full">PREMIUM</span>
+                </div>
+              </div>
+            </div>
+            <ul className="text-sm text-slate-400 mb-6 space-y-1">
+              <li>• All top-tier models available</li>
+              <li>• Best for complex multi-agent runs</li>
+              <li>• Paid per token</li>
+            </ul>
+            <AnimatePresence>
+              {provider === "openrouter" && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="pt-4 border-t border-white/10">
+                  <button className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-2 rounded-lg transition-colors">
+                    Sign In with OAuth
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Ollama */}
+          <div 
+            onClick={() => handleProviderSelect("ollama")}
+            className={`glass-card p-6 cursor-pointer transition-all duration-300 card-3d
+              ${provider === "ollama" ? "border-cyan-500 shadow-glow-cyan" : "border-white/10 hover:border-cyan-500/50"}
+            `}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center">
+                  <span className="text-cyan-400 text-xl">🖥️</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Local Ollama</h3>
+                  <span className="text-xs font-semibold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full">PRIVATE</span>
+                </div>
+              </div>
+            </div>
+            <ul className="text-sm text-slate-400 mb-6 space-y-1">
+              <li>• 100% private, runs on your GPU</li>
+              <li>• Unlimited tokens</li>
+              <li>• Requires local setup</li>
+            </ul>
+            <AnimatePresence>
+              {provider === "ollama" && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="pt-4 border-t border-white/10">
+                  <input 
+                    type="text" 
+                    placeholder="http://localhost:11434" 
+                    value={keys.ollama}
+                    onChange={(e) => handleKeyChange("ollama", e.target.value)}
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-cyan-500 font-mono text-sm"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+        </div>
+
+        {/* Step 2 */}
+        <div className="text-center mb-6">
+          <p className="text-slate-400 mb-4">Step 2 of 2 — Connect GitHub (Required for Auto-PR)</p>
+          <div className="glass-card p-4 flex items-center justify-between border-white/10 max-w-sm mx-auto">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🐙</span>
+              <span className="text-white font-medium">GitHub Account</span>
+            </div>
+            {githubConnected ? (
+              <span className="text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1 rounded-full text-sm">✅ Connected</span>
+            ) : (
+              <button 
+                onClick={() => setGithubConnected(true)}
+                className="bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors"
+              >
+                Connect Account
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Action */}
+        <div className="flex justify-center">
+          <button 
+            onClick={handleContinue}
+            disabled={!canContinue || !githubConnected}
+            className={`
+              btn-primary px-12 py-3.5 rounded-xl text-lg w-full max-w-sm
+              ${(!canContinue || !githubConnected) ? "opacity-50 cursor-not-allowed grayscale" : ""}
+            `}
+          >
+            Continue to Dashboard →
+          </button>
+        </div>
+
       </motion.div>
     </div>
   );

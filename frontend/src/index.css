@@ -7,39 +7,81 @@
 
 /* ---------- Custom Properties ---------- */
 :root {
-  --bg-deepest: #06090f;
-  --bg-surface: #0c1220;
-  --bg-card: #131b2e;
-  --bg-elevated: #1a2340;
+  /* Triadic palette */
+  --color-indigo:   hsl(226, 100%, 60%);   /* #3B82F6 — primary */
+  --color-cyan:     hsl(189, 94%, 43%);    /* #06B6D4 — active/live */
+  --color-emerald:  hsl(158, 64%, 52%);    /* #10B981 — success */
+  --color-amber:    hsl(38, 95%, 56%);     /* #F59E0B — warning */
+  --color-rose:     hsl(347, 87%, 60%);    /* #F43F5E — critical */
+  --color-violet:   hsl(271, 76%, 65%);    /* #8B5CF6 — AI/premium */
+
+  /* Depth layers (Dark Mode Default) */
+  --layer-0: hsl(222, 47%, 4%);    /* #020612 deepest */
+  --layer-1: hsl(222, 47%, 6%);    /* #050D1C */
+  --layer-2: hsl(222, 43%, 9%);    /* #0A1628 */
+  --layer-3: hsl(220, 39%, 13%);   /* #111F36 */
+  --layer-4: hsl(218, 35%, 17%);   /* #172744 */
+  --text-main: hsl(210, 40%, 98%); /* Slate 50 */
+  --text-muted: hsl(215, 20%, 65%); /* Slate 400 */
+
+  /* Legacy aliases to prevent breakage */
+  --bg-deepest: var(--layer-0);
+  --bg-surface: var(--layer-1);
+  --bg-card: var(--layer-2);
+  --bg-elevated: var(--layer-3);
+  --text-primary: var(--text-main);
+  --text-secondary: var(--text-muted);
+  --text-tertiary: #64748b;
+  --accent-blue: var(--color-cyan);
+  --accent-blue-hover: hsl(189, 94%, 53%);
+  --accent-amber: var(--color-violet);
+  --accent-amber-hover: hsl(271, 76%, 75%);
+  --color-success: var(--color-emerald);
+  --color-warning: var(--color-amber);
+  --color-error: var(--color-rose);
+  --gradient-premium: linear-gradient(135deg, var(--color-indigo), var(--color-violet));
+
+  /* 3D system */
+  --perspective-card:    1200px;
+  --perspective-pipeline: 800px;
+  --depth-base:          translateZ(0px);
+  --depth-raised:        translateZ(12px);
+  --depth-elevated:      translateZ(24px);
+  --depth-floating:      translateZ(40px);
+
+  /* Semantic glow shadows */
+  --glow-indigo:  0 0 20px hsl(226 100% 60% / 0.25);
+  --glow-cyan:    0 0 20px hsl(189 94% 43% / 0.3);
+  --glow-emerald: 0 0 20px hsl(158 64% 52% / 0.25);
+  --glow-rose:    0 0 20px hsl(347 87% 60% / 0.3);
+  --glow-violet:  0 0 20px hsl(271 76% 65% / 0.2);
 
   --border-default: rgba(255, 255, 255, 0.06);
   --border-hover: rgba(255, 255, 255, 0.1);
-
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-
-  --accent-blue: #22d3ee;
-  --accent-blue-hover: #06b6d4;
-  --accent-amber: #a78bfa;
-  --accent-amber-hover: #8b5cf6;
-
-  --color-success: #34d399;
-  --color-warning: #fbbf24;
-  --color-error: #f87171;
-
-  --gradient-premium: linear-gradient(135deg, #22d3ee, #a78bfa);
-
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 20px rgba(0, 0, 0, 0.2);
   --shadow-elevated: 0 4px 30px rgba(0, 0, 0, 0.4);
-  --shadow-glow-blue: 0 0 30px rgba(34, 211, 238, 0.15);
-
+  --shadow-glow-blue: var(--glow-cyan);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 20px;
   --radius-pill: 9999px;
-
   --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Light Theme Overrides */
+body.light-theme {
+  --layer-0: hsl(210, 40%, 98%);   /* Slate 50 */
+  --layer-1: hsl(0, 0%, 100%);     /* White */
+  --layer-2: hsl(210, 40%, 96%);   /* Slate 100 */
+  --layer-3: hsl(214, 32%, 91%);   /* Slate 200 */
+  --layer-4: hsl(0, 0%, 100%);     /* White */
+  --text-main: hsl(222, 47%, 11%); /* Slate 800 */
+  --text-muted: hsl(215, 16%, 47%);/* Slate 500 */
+  --glow-indigo:  0 0 20px hsl(226 100% 60% / 0.15);
+  --glow-cyan:    0 0 20px hsl(189 94% 43% / 0.2);
+  --glow-emerald: 0 0 20px hsl(158 64% 52% / 0.15);
+  --glow-rose:    0 0 20px hsl(347 87% 60% / 0.2);
+  --glow-violet:  0 0 20px hsl(271 76% 65% / 0.15);
 }
 
 /* ---------- Base Styles ---------- */
@@ -399,4 +441,126 @@ input, textarea, select {
 
 .diff-neutral {
   border-left: 3px solid transparent;
+}
+/* ── 3D Stage ── */
+.stage-3d {
+  perspective: var(--perspective-card);
+  perspective-origin: 50% 30%;
+}
+.card-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.card-3d:hover {
+  transform: translateZ(16px) rotateX(-2deg);
+}
+
+/* ── Semantic Glow Cards ── */
+.card-indigo  { border-color: hsl(226 100% 60% / 0.2); }
+.card-indigo:hover { box-shadow: var(--glow-indigo); border-color: hsl(226 100% 60% / 0.4); }
+.card-cyan    { border-color: hsl(189 94% 43% / 0.2); }
+.card-cyan:hover  { box-shadow: var(--glow-cyan);   border-color: hsl(189 94% 43% / 0.4); }
+.card-emerald { border-color: hsl(158 64% 52% / 0.2); }
+.card-rose    { border-color: hsl(347 87% 60% / 0.2); }
+.card-violet  { border-color: hsl(271 76% 65% / 0.2); }
+
+/* ── Severity Borders (left-side accent) ── */
+.severity-border-critical { border-left: 3px solid var(--color-rose); }
+.severity-border-high     { border-left: 3px solid var(--color-amber); }
+.severity-border-medium   { border-left: 3px solid var(--color-indigo); }
+.severity-border-low      { border-left: 3px solid var(--color-emerald); }
+
+/* ── Live Agent Node (3D pop) ── */
+.agent-node-running {
+  transform: translateZ(24px) scale(1.08);
+  box-shadow:
+    0 0 0 2px hsl(189 94% 43% / 0.5),
+    0 8px 32px hsl(189 94% 43% / 0.4),
+    0 0 60px hsl(189 94% 43% / 0.15);
+  animation: agent-pulse 1.5s ease-in-out infinite;
+}
+@keyframes agent-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px hsl(189 94% 43% / 0.5), 0 8px 32px hsl(189 94% 43% / 0.4); }
+  50%       { box-shadow: 0 0 0 4px hsl(189 94% 43% / 0.3), 0 12px 40px hsl(189 94% 43% / 0.6); }
+}
+
+/* ── Premium Gradient Buttons ── */
+.btn-primary {
+  background: linear-gradient(135deg, hsl(226, 100%, 60%), hsl(271, 76%, 65%));
+  color: white;
+  font-weight: 700;
+  box-shadow: 0 4px 20px hsl(226 100% 60% / 0.4);
+  transition: all 0.25s ease;
+}
+.btn-primary:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 32px hsl(226 100% 60% / 0.5);
+}
+.btn-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, hsl(158, 64%, 42%), hsl(158, 64%, 52%));
+  box-shadow: 0 4px 20px hsl(158 64% 52% / 0.35);
+}
+.btn-danger {
+  background: linear-gradient(135deg, hsl(347, 87%, 50%), hsl(347, 87%, 60%));
+  box-shadow: 0 4px 20px hsl(347 87% 60% / 0.35);
+}
+
+/* ── Token Streaming Cursor ── */
+.streaming-cursor::after {
+  content: '▋';
+  color: hsl(189, 94%, 43%);
+  animation: blink 0.8s step-end infinite;
+}
+
+/* ── Depth Layer System ── */
+.layer-0 { background: var(--layer-0); }
+.layer-1 { background: var(--layer-1); }
+.layer-2 { background: var(--layer-2); }
+.layer-3 { background: var(--layer-3); }
+.layer-4 { background: var(--layer-4); }
+
+/* ── Evidence Timeline ── */
+.evidence-chain {
+  position: relative;
+  padding-left: 24px;
+}
+.evidence-chain::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--color-cyan), var(--color-violet));
+}
+.evidence-node::before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-violet);
+  box-shadow: 0 0 8px var(--color-violet);
+}
+
+/* ── Progress Bar ── */
+.phase-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--layer-3);
+  overflow: hidden;
+}
+.phase-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--color-cyan), var(--color-indigo));
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 8px var(--color-cyan);
 }

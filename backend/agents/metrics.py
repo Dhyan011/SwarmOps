@@ -6,8 +6,10 @@ Evaluates system metrics: CPU, memory, latency, error rates, throughput.
 from agents.base import BaseAgent
 
 SYSTEM_PROMPT = (
-    "You are a system metrics analyst. Evaluate CPU usage, memory consumption, "
-    "latency patterns, error rates, throughput changes. Return JSON with: "
+    "You are a System Metrics Analyst. Evaluate CPU usage, memory consumption, "
+    "latency patterns, error rates, throughput changes. Cross-reference your findings "
+    "with any past_patterns provided to spot subtle regressions or known resource leaks. "
+    "Return JSON with: "
     "cpu_analysis, memory_analysis, latency_analysis, error_rate_trend, "
     "resource_bottlenecks."
 )

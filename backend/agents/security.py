@@ -6,8 +6,10 @@ Checks for vulnerabilities, suspicious patterns, and unauthorized access.
 from agents.base import BaseAgent
 
 SYSTEM_PROMPT = (
-    "You are a security analyst. Check for vulnerabilities, suspicious patterns, "
-    "unauthorized access, data exposure risks. Return JSON with: vulnerabilities, "
+    "You are a Security Analyst. Check for vulnerabilities, suspicious patterns, "
+    "unauthorized access, and data exposure risks. Use past_patterns to detect if "
+    "attackers are exploiting a known gap or if previous security fixes regressed. "
+    "Return JSON with: vulnerabilities, "
     "suspicious_patterns, access_anomalies, risk_level, security_recommendations."
 )
 

@@ -18,7 +18,7 @@ import {
 } from "recharts";
 import { motion } from "framer-motion";
 import MetricCard from "../components/MetricCard";
-
+import { useIncident } from "../context/IncidentContext";
 
 const agentPerformance = [
   { name: "Triage Agent", avgDuration: "0.8s", successRate: "99.2%" },
@@ -31,14 +31,12 @@ const agentPerformance = [
   { name: "Validation", avgDuration: "2.6s", successRate: "98.9%" },
 ];
 
-import { useIncident } from "../context/IncidentContext";
-
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="glass-card-static px-3 py-2 text-xl">
-        <p className="text-white font-bold mb-1">{label}</p>
-        <p className="text-blue-400 font-semibold">
+      <div className="bg-black/80 backdrop-blur-md border border-white/10 px-4 py-3 rounded-xl shadow-2xl">
+        <p className="text-white font-bold text-sm mb-1">{label}</p>
+        <p className="text-indigo-400 font-bold text-lg">
           {payload[0].value}
           {payload[0].dataKey === "time" ? " min" : " incidents"}
         </p>
@@ -60,7 +58,7 @@ export default function AnalyticsPage() {
 
   // Dynamic Chart Data
   const severityData = [
-    { name: "Low", count: incidents.filter(i => i.severity === "low").length, color: "#22d3ee" },
+    { name: "Low", count: incidents.filter(i => i.severity === "low").length, color: "#38bdf8" },
     { name: "Medium", count: incidents.filter(i => i.severity === "medium").length, color: "#fbbf24" },
     { name: "High", count: incidents.filter(i => i.severity === "high").length, color: "#f87171" },
     { name: "Critical", count: incidents.filter(i => i.severity === "critical").length, color: "#ef4444" },
@@ -85,23 +83,25 @@ export default function AnalyticsPage() {
 
   return (
     <motion.div 
-      className="space-y-10"
+      className="max-w-7xl mx-auto space-y-10"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
       {/* Header */}
-      <motion.div variants={itemVariants}>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">
-          <span className="gradient-text">Analytics</span>
-        </h1>
-        <p className="text-xl text-white font-bold">
-          Performance insights and historical incident data.
-        </p>
+      <motion.div variants={itemVariants} className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight mb-2 text-white">
+            Global Analytics
+          </h1>
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-wider">
+            SwarmOps Performance Insights
+          </p>
+        </div>
       </motion.div>
 
       {/* Metric Cards */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard
           label="Total Incidents"
           value={total}
@@ -130,7 +130,7 @@ export default function AnalyticsPage() {
           delay={160}
         />
         <MetricCard
-          label="Escalations (Rejected)"
+          label="Escalations"
           value={escalations}
           icon={HiOutlineExclamationTriangle}
           trend="none"
@@ -142,33 +142,35 @@ export default function AnalyticsPage() {
       {/* Charts Row */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Resolution Time Chart */}
-        <div className="glass-card-static p-6">
-          <h3 className="text-xl font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium mb-6">
-            Resolution Time (min)
+        <div className="glass-card p-6 card-3d">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-6 px-2">
+            Resolution Time Trend (min)
           </h3>
-          <div className="h-64">
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={resolutionData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <LineChart data={resolutionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                 <XAxis
                   dataKey="name"
-                  tick={{ fill: "#94a3b8", fontSize: 11 }}
-                  axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
+                  tick={{ fill: "#64748b", fontSize: 10, fontWeight: "bold" }}
+                  axisLine={{ stroke: "rgba(255,255,255,0.05)" }}
                   tickLine={false}
+                  dy={10}
                 />
                 <YAxis
-                  tick={{ fill: "#94a3b8", fontSize: 11 }}
-                  axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
+                  tick={{ fill: "#64748b", fontSize: 10, fontWeight: "bold" }}
+                  axisLine={{ stroke: "rgba(255,255,255,0.05)" }}
                   tickLine={false}
+                  dx={-10}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip />} cursor={{ stroke: "rgba(255,255,255,0.1)", strokeWidth: 1 }} />
                 <Line
                   type="monotone"
                   dataKey="time"
-                  stroke="#22d3ee"
-                  strokeWidth={2}
-                  dot={{ r: 4, fill: "#0c1220", stroke: "#22d3ee", strokeWidth: 2 }}
-                  activeDot={{ r: 6, fill: "#22d3ee" }}
+                  stroke="#818cf8"
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: "#0d1117", stroke: "#818cf8", strokeWidth: 2 }}
+                  activeDot={{ r: 6, fill: "#818cf8", stroke: "#fff", strokeWidth: 2 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -176,27 +178,29 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Severity Distribution */}
-        <div className="glass-card-static p-6">
-          <h3 className="text-xl font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium mb-6">
-            Incidents by Severity
+        <div className="glass-card p-6 card-3d">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-6 px-2">
+            Incident Distribution
           </h3>
-          <div className="h-64">
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={severityData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <BarChart data={severityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                 <XAxis
                   dataKey="name"
-                  tick={{ fill: "#94a3b8", fontSize: 11 }}
-                  axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
+                  tick={{ fill: "#64748b", fontSize: 10, fontWeight: "bold" }}
+                  axisLine={{ stroke: "rgba(255,255,255,0.05)" }}
                   tickLine={false}
+                  dy={10}
                 />
                 <YAxis
-                  tick={{ fill: "#94a3b8", fontSize: 11 }}
-                  axisLine={{ stroke: "rgba(255,255,255,0.06)" }}
+                  tick={{ fill: "#64748b", fontSize: 10, fontWeight: "bold" }}
+                  axisLine={{ stroke: "rgba(255,255,255,0.05)" }}
                   tickLine={false}
+                  dx={-10}
                 />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.02)" }} />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={40}>
                   {severityData.map((entry, i) => (
                     <Cell key={i} fill={entry.color} fillOpacity={0.8} />
                   ))}
@@ -208,49 +212,49 @@ export default function AnalyticsPage() {
       </motion.div>
 
       {/* Agent Performance Table */}
-      <motion.div variants={itemVariants} className="glass-card-static overflow-hidden">
-        <div className="px-6 py-4 border-b border-black/[0.1]">
-          <h3 className="text-xl font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium">
-            Agent Performance
+      <motion.div variants={itemVariants} className="glass-card overflow-hidden card-3d">
+        <div className="px-6 py-5 border-b border-white/5 bg-black/20">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+            Agent Swarm Performance Matrix
           </h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-white/[0.04]">
-                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium">
-                  Agent
+              <tr className="border-b border-white/5 bg-black/10">
+                <th className="text-left px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                  Autonomous Agent
                 </th>
-                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium">
-                  Avg Duration
+                <th className="text-left px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                  Execution Time
                 </th>
-                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium">
-                  Success Rate
+                <th className="text-left px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                  Reliability Score
                 </th>
-                <th className="text-left px-6 py-3 text-[11px] font-semibold uppercase tracking-wider text-white font-bold font-semibold font-medium">
-                  Status
+                <th className="text-left px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                  System Status
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-white/5">
               {agentPerformance.map((agent, i) => (
                 <tr
                   key={agent.name}
-                  className="border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02] transition-colors duration-150"
+                  className="hover:bg-white/[0.02] transition-colors"
                 >
-                  <td className="px-6 py-3.5 text-xl text-white font-medium">
+                  <td className="px-6 py-4 text-sm text-white font-bold">
                     {agent.name}
                   </td>
-                  <td className="px-6 py-3.5 text-xl text-white font-bold tabular-nums font-mono">
+                  <td className="px-6 py-4 text-sm text-slate-300 font-mono font-medium">
                     {agent.avgDuration}
                   </td>
-                  <td className="px-6 py-3.5 text-xl text-white font-bold tabular-nums font-mono">
+                  <td className="px-6 py-4 text-sm text-emerald-400 font-mono font-bold">
                     {agent.successRate}
                   </td>
-                  <td className="px-6 py-3.5">
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                      Healthy
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Operational
                     </span>
                   </td>
                 </tr>

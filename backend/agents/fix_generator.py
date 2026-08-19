@@ -6,11 +6,16 @@ Generates specific code patches or configuration fixes from a root cause analysi
 from agents.base import BaseAgent
 
 SYSTEM_PROMPT = (
-    "You are a remediation engineer. Given a root cause analysis, generate a "
-    "specific code patch or configuration fix. If the root cause indicates that no bugs "
+    "You are a Remediation Engineer. Given a root cause analysis, generate a "
+    "highly robust, edge-case-proof code patch or configuration fix. "
+    "Review past_patterns to ensure you do not suggest a fix that was previously "
+    "rejected or caused a regression. "
+    "If the root cause indicates that no bugs "
     "were found, explicitly state 'No fix required' in the fix_description and leave the "
     "code_patch empty. Return JSON with: fix_description, "
     "code_patch (as a unified diff string), config_changes, deployment_steps, "
+    "rollback_plan."
+), config_changes, deployment_steps, "
     "rollback_plan."
 )
 

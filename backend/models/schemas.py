@@ -3,17 +3,17 @@ SwarmOps — Pydantic Schemas
 All request/response models for the incident response pipeline.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class IncidentCreate(BaseModel):
     """Incoming incident payload from the frontend."""
-    description: str
-    service: str
-    severity: str
-    code_snippet: str = ""
-    target_url: str = ""
-    analysis_mode: str = "full"  # "full" or "agentic"
+    description: str = Field(..., max_length=5000)
+    service: str = Field(..., max_length=100)
+    severity: str = Field(..., max_length=50)
+    code_snippet: str = Field("", max_length=50000)
+    target_url: str = Field("", max_length=500)
+    analysis_mode: str = Field("full", max_length=50)
 
 
 class AgentFinding(BaseModel):

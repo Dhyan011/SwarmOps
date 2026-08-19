@@ -3,3 +3,8 @@ uvicorn[standard]
 openai
 python-dotenv
 python-socketio
+httpx
+python-multipart
+slowapi
+azure-identity
+azure-monitor-query
