@@ -3,7 +3,8 @@ SwarmOps — Pydantic Schemas
 All request/response models for the incident response pipeline.
 """
 
-from pydantic import BaseModel, Field
+from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class IncidentCreate(BaseModel):
@@ -42,8 +43,24 @@ class IncidentReport(BaseModel):
     recommended_fix: str
     code_patch: str
     validation_result: str
+    validation_state: Literal[
+        "not_validated", "validation_in_progress", "validation_passed",
+        "validation_failed", "needs_manual_review"
+    ] = "needs_manual_review"
     resolution_time_ms: int
     target_url: str = ""
+
+
+class ValidationOutput(BaseModel):
+    """Strict, fail-closed output contract for the AI validation agent."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    validation_status: Literal["approved", "rejected", "needs_review"]
+    safety_score: int = Field(ge=0, le=100)
+    potential_side_effects: list[str]
+    completeness: bool
+    final_recommendation: str = Field(min_length=1, max_length=4000)
 
 
 class AgentEvent(BaseModel):

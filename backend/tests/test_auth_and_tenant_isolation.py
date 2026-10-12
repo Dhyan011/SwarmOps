@@ -125,6 +125,11 @@ def test_cross_user_incident_read_and_listing_are_isolated(monkeypatch):
         assert own.status_code == 200
         assert own.json()["incident_id"] == "own"
 
+        unvalidated_approval = client.post(
+            "/api/v1/incidents/own/action", json={"action": "approve"}
+        )
+        assert unvalidated_approval.status_code == 409
+
         cross_user = client.get("/api/v1/incidents/other")
         assert cross_user.status_code == 404
 

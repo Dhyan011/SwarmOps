@@ -187,6 +187,10 @@ async def handle_incident_action(
     report = await db.get(incident_id, owner_id=user.user_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Incident not found")
+    if payload.action == "approve" and (
+        report.status != "awaiting_review" or report.validation_state != "validation_passed"
+    ):
+        raise HTTPException(status_code=409, detail="Remediation is not eligible for approval.")
         
     if payload.action == "approve":
         report.status = "deployed"

@@ -14,7 +14,7 @@ import time
 from datetime import datetime, timezone
 from fastapi import HTTPException
 
-from models.schemas import IncidentCreate, IncidentReport, AgentFinding
+from models.schemas import IncidentCreate, IncidentReport, AgentFinding, ValidationOutput
 
 from agents.triage import TriageAgent
 from agents.log_analyzer import LogAnalyzerAgent
@@ -110,9 +110,8 @@ class Orchestrator:
         context["triage_result"] = triage_result
         
         if "error" in triage_result:
-            error_msg = triage_result["error"]
-            await self._emit_phase(incident_id, "triage", "failed", f"Investigation aborted due to API error: {error_msg}", owner_id)
-            raise HTTPException(status_code=429, detail=f"OpenRouter API limit or error encountered: {error_msg}")
+            await self._emit_phase(incident_id, "triage", "failed", "Investigation stopped because triage failed.", owner_id)
+            raise HTTPException(status_code=502, detail="Investigation stopped because triage could not be completed.")
 
         await self._emit_phase(incident_id, "triage", "completed", "Triage phase completed", owner_id)
 
@@ -126,6 +125,9 @@ class Orchestrator:
             self.trace_agent.run(context),
             self.security_agent.run(context),
         )
+        if any("error" in result for result in (log_res, metrics_res, trace_res, sec_res)):
+            await self._emit_phase(incident_id, "investigation", "failed", "An analysis agent failed; no remediation will be prepared.", owner_id)
+            raise HTTPException(status_code=502, detail="Investigation analysis could not be completed.")
 
         investigation_results = {
             "log_analysis": log_res,
@@ -147,6 +149,8 @@ class Orchestrator:
         context["phase"] = "root_cause"
         await self._emit_phase(incident_id, "root_cause", "started", "Root cause analysis initiated", owner_id)
         root_cause_result = await self.root_cause_agent.run(context)
+        if "error" in root_cause_result:
+            raise HTTPException(status_code=502, detail="Root-cause analysis could not be completed.")
         phases.append({"phase": "root_cause", "status": "completed", "result": root_cause_result})
         agent_findings.append(self._to_finding(self.root_cause_agent, root_cause_result))
         context["root_cause"] = root_cause_result
@@ -162,6 +166,8 @@ class Orchestrator:
         context["phase"] = "fix_generation"
         await self._emit_phase(incident_id, "fix_generation", "started", "Fix generation initiated", owner_id)
         fix_result = await self.fix_generator.run(context)
+        if "error" in fix_result:
+            raise HTTPException(status_code=502, detail="Fix generation could not be completed.")
         phases.append({"phase": "fix_generation", "status": "completed", "result": fix_result})
         agent_findings.append(self._to_finding(self.fix_generator, fix_result))
         context["proposed_fix"] = fix_result
@@ -184,9 +190,24 @@ class Orchestrator:
         agent_findings.append(self._to_finding(self.validation_agent, validation_result))
         await self._emit_phase(incident_id, "validation", "completed", "Validation phase completed", owner_id)
 
-        validation_status = validation_result.get("validation_status", "approved")
+        validated_output = None
+        try:
+            validation_payload = {
+                key: value for key, value in validation_result.items()
+                if not key.startswith("_")
+            }
+            validated_output = ValidationOutput.model_validate(validation_payload)
+        except Exception:
+            pass
+        validation_status = (
+            validated_output.validation_status
+            if validated_output is not None
+            else "needs_review"
+        )
+        if "error" in test_result:
+            validation_status = "needs_review"
 
-        if validation_status != "rejected":
+        if validation_status == "approved":
             # ── Phase 6: PR Composer ──────────────────────────────────────
             context["phase"] = "pr_composer"
             await self._emit_phase(incident_id, "pr_composer", "started", "PR composing initiated", owner_id)
@@ -206,7 +227,11 @@ class Orchestrator:
             description=incident.description,
             service=incident.service,
             severity=incident.severity,
-            status="validation_failed" if validation_status == "rejected" else "resolved",
+            status=(
+                "validation_failed" if validation_status == "rejected"
+                else "awaiting_review" if validation_status == "approved"
+                else "needs_review"
+            ),
             created_at=created_at,
             phases=phases,
             agent_findings=agent_findings,
@@ -214,7 +239,16 @@ class Orchestrator:
             confidence=confidence,
             recommended_fix=fix_result.get("fix_description", "No fix generated"),
             code_patch=fix_result.get("code_patch", ""),
-            validation_result=json.dumps(validation_result) if validation_status == "rejected" else validation_result.get("validation_status", "unknown"),
+            validation_result=(
+                validated_output.model_dump_json()
+                if validated_output is not None
+                else json.dumps({"validation_status": "needs_review", "reason": "missing_or_invalid_validation_output"})
+            ),
+            validation_state=(
+                "validation_failed" if validation_status == "rejected"
+                else "validation_passed" if validation_status == "approved"
+                else "needs_manual_review"
+            ),
             resolution_time_ms=resolution_ms,
             target_url=incident.target_url,
             auto_escalated=auto_escalated,
@@ -226,11 +260,11 @@ class Orchestrator:
         from db import db
         await db.set(incident_id, report)
 
-        if validation_status == "rejected":
+        if validation_status != "approved":
             await self.sio.emit("investigation_complete", {
                 "incident_id": incident_id,
-                "status": "validation_failed",
-                "message": "Validation agent rejected the fix. Review findings before proceeding."
+                "status": "validation_failed" if validation_status == "rejected" else "needs_review",
+                "message": "Validation did not pass. Manual review is required before remediation."
             }, room=f"user:{owner_id}")
             return report
 
