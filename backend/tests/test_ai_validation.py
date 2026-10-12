@@ -63,7 +63,7 @@ async def run_pipeline(monkeypatch, validation_result, test_result=None):
     pipeline = create_orchestrator(validation_result, test_result)
     report = await pipeline.investigate(
         IncidentCreate(description="test", service="api", severity="low"),
-        api_key="provider-test-key",
+        provider_config={"provider": "openai", "model": "test-model", "api_key": "user-test-key"},
         owner_id="user-a",
     )
     return report, pipeline, fake_db

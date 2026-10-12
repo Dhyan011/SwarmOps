@@ -46,7 +46,8 @@ Classifications are based on source inspection and local tests. “Provider-unve
 | Supabase session guard and backend JWT/tenant checks | Implemented and verified | `frontend/src/App.jsx`, `frontend/src/services/supabase.js`, `backend/auth.py`, owner-scoped DB methods in `backend/db.py`; backend tests cover token/tenant behavior. Live OAuth configuration was not verified. |
 | Identity provider | Partial / provider-unverified | Google sign-in and callback are wired in `frontend/src/pages/LoginPage.jsx`; the live Supabase provider and redirect configuration were not verified. GitHub identity login is distinct from the GitHub App installation used for repository access. |
 | Incident intake and persistence | Implemented and verified | FastAPI routes and async SQLAlchemy/Alembic persistence; PostgreSQL and migrations must be configured for deployment. |
-| Model-assisted orchestration | Implemented; provider-unverified | Orchestrator and OpenRouter-compatible agent client exist. Model behavior, provider credentials, latency, and cost were not live-tested. |
+| Model-assisted orchestration | Implemented; provider-unverified | Orchestrator and provider-aware agent adapter exist. Model behavior, per-user provider credentials, latency, and cost were not live-tested. |
+| Per-user BYOK provider configuration | Implemented; provider-unverified | Authenticated onboarding/settings support OpenRouter, OpenAI, Anthropic, and Gemini; model listing and connection tests use fixed provider endpoints; API keys are AES-GCM encrypted with an external backend-only master key and resolved by authenticated owner. No shared provider key or cross-user fallback remains. Live provider tests and key-rotation procedure are unverified. |
 | Metrics/traces/security/root-cause specialist work | Partial | Multiple roles are model prompts, not dedicated telemetry queries or deterministic scanners. Azure Logs has a provider-backed code path but deployment credentials are not provisioned by the current Render blueprint. |
 | Public/GitHub context fetching | Implemented and verified at unit level | Bounded HTTPS/public-DNS fetcher, GitHub archive/content readers, and SSRF tests exist. Contribution scans persist an exact commit SHA and filter/redact common credentials; incident-context fetch failures and revisions are not yet a first-class evidence manifest. |
 | Strict output/policy/human approval gates | Implemented and verified in tests | Strict validation schema, deterministic patch policy, reviewer/admin gate, and explicit `tests_executed=false` exist. They do not prove that a change works. |
@@ -60,6 +61,10 @@ Classifications are based on source inspection and local tests. “Provider-unve
 | Frontend operational states | Partial | Investigation and contribution pages expose loading/error/partial states. Legacy analytics/memory screens remain unlinked and are not routed. No frontend route/auth/action tests exist. |
 | Frontend quality gates | Local checks pass | Production build and ESLint pass. No frontend route/auth/action tests exist. |
 
+### BYOK security boundary
+
+The encrypted provider record is keyed by verified Supabase user ID and contains only provider ID, selected model, ciphertext, and update time. AES-GCM associated data binds ciphertext to that owner ID; absent/invalid `BYOK_ENCRYPTION_KEY` fails closed. The browser sends the key only in authenticated HTTPS request bodies, stores it only in component memory while the user is editing, and receives only configured/provider/model metadata. Provider/model discovery uses fixed HTTPS origins; user input cannot choose a host. Each AI entry point resolves only the caller's stored credential, and missing settings return an explicit setup-required response. Agent prompt serialization strips provider credentials. Provider connection testing sends a minimal test request; subsequent AI execution sends the user's evidence to their selected provider.
+
 ## Core journeys
 
 ### 1. First visit to an incident
@@ -67,6 +72,8 @@ Classifications are based on source inspection and local tests. “Provider-unve
 Public home → explore a clearly labelled synthetic sample or sign in → establish SwarmOps identity → connect GitHub App separately if a repository action is needed → explain permissions and choose an authorized repository → create an investigation with any available manual evidence → inspect evidence/findings/uncertainty → review proposed diff and validation state → explicit reviewer approval → verify PR URL/status → track resolution separately.
 
 Google is the SwarmOps identity provider; GitHub App installation is separate repository authorization. Google provider setup, redirect allow-list, and end-to-end OAuth remain deployment prerequisites and provider-unverified until tested against the configured Supabase project.
+
+After successful identity authentication, users must complete BYOK setup before any authenticated workspace route other than onboarding; backend AI endpoints independently enforce the same requirement. GitHub remains optional and separate.
 
 ### 2. Manual-evidence fallback
 
@@ -119,7 +126,8 @@ At every point answer: **What is happening? What evidence exists? What did we le
 | --- | --- | --- |
 | Supabase Auth | SwarmOps identity | One authenticated identity; provider setup and callback allow-list must be configured server-side. |
 | GitHub App | Repository read/write authorization | Installation is distinct from login. Read permission does not imply issue/branch/PR write permission. Re-check repository and required permission for each action. |
-| OpenRouter-compatible LLM | AI investigation | Backend configuration or explicit supported per-user credential; never treat its key as identity or claim provider verification without an actual call. Explain that submitted evidence is sent to the configured model provider. |
+| OpenRouter, OpenAI, Anthropic, Google Gemini | AI investigation | Per-account provider key encrypted at rest; provider/model selected by the authenticated owner. No server-wide key fallback. Explain evidence transmission to that provider. |
+| User BYOK providers | AI investigation and contribution scan | Each signed-in account selects OpenRouter, OpenAI, Anthropic, or Gemini, dynamically loads available models, tests, and saves its own encrypted credential. No shared platform key, cross-user key retrieval, or provider fallback. |
 | Azure Log Analytics | Optional external logs | Only show as connected when backend configuration and query path can be verified; otherwise support manual log input. |
 | Metrics/tracing providers | Future integrations | Do not show connected badges or imply live queries until an actual integration exists. |
 
@@ -171,4 +179,4 @@ At every point answer: **What is happening? What evidence exists? What did we le
 
 ## Audit limitations
 
-The audit used repository inspection plus local backend tests, frontend production build/lint, and a production-dependency audit. The current local run passed **87 backend tests** (one pytest collection warning for the application class `TestGeneratorAgent`), the frontend production build, and frontend lint; `npm audit --omit=dev --audit-level=high` reported zero vulnerabilities. No live Supabase OAuth/JWKS, OpenRouter, Azure, GitHub App mutation, PostgreSQL deployment migration, or deployed Socket.IO flow was executed. These results are source-level/test-double evidence, not proof of production-provider operation.
+The audit used repository inspection plus local backend tests, frontend production build/lint, and a production-dependency audit. BYOK provider tests are mocked; no actual provider credentials or live calls were used in local validation. No live Supabase OAuth/JWKS, OpenRouter, OpenAI, Anthropic, Gemini, Azure, GitHub App mutation, PostgreSQL deployment migration, or deployed Socket.IO flow was executed. These results are source-level/test-double evidence, not proof of production-provider operation.

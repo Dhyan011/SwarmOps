@@ -4,7 +4,21 @@ All request/response models for the incident response pipeline.
 """
 
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
+
+
+class ProviderKeyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    provider: Literal["openrouter", "openai", "anthropic", "gemini"]
+    api_key: SecretStr = Field(min_length=1, max_length=4096)
+
+
+class ProviderTestRequest(ProviderKeyRequest):
+    model: str = Field(min_length=1, max_length=200)
+
+
+class ProviderConfigRequest(ProviderTestRequest):
+    pass
 
 
 class IncidentCreate(BaseModel):

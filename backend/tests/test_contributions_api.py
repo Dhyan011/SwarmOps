@@ -49,7 +49,10 @@ def test_non_reviewer_cannot_publish_before_store_or_provider_access():
 @pytest.mark.asyncio
 async def test_scan_persists_exact_commit_and_disables_invalid_or_low_confidence_patch(monkeypatch):
     stored = {}
-    monkeypatch.setattr(main, "OPENROUTER_API_KEY", "configured-provider-key")
+    async def user_provider(owner_id):
+        assert owner_id == "user-a"
+        return {"provider": "openrouter", "model": "test-model", "api_key": "user-owned-test-key"}
+    monkeypatch.setattr(main, "require_user_provider", user_provider)
 
     async def fetch_snapshot(url):
         assert url == "https://github.com/acme/project"
@@ -66,6 +69,7 @@ async def test_scan_persists_exact_commit_and_disables_invalid_or_low_confidence
 
         async def scan(self, context):
             assert context["source_sha"] == SOURCE_SHA
+            assert context["provider_config"]["api_key"] == "user-owned-test-key"
             return {"summary": "One concrete improvement.", "candidate": candidate_data(), "_agent": "Contribution Scanner"}
 
     class FakeDB:

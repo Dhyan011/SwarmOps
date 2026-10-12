@@ -3,6 +3,7 @@
     { "path": "/", "title": "SwarmOps home" },
     { "path": "/login", "title": "Sign in" },
     { "path": "/auth/callback", "title": "Authentication callback" },
+    { "path": "/onboarding", "title": "Required AI provider setup" },
     { "path": "/dashboard", "title": "Investigations" },
     { "path": "/new-incident", "title": "New investigation" },
     { "path": "/incident/:id", "title": "Investigation detail" },

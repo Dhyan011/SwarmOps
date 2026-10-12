@@ -73,7 +73,7 @@ export default function ContributePage() {
       </form>
 
       <aside className="rounded-lg border border-amber-200/15 bg-amber-200/[0.04] p-4 text-xs leading-5 text-slate-300">
-        <strong className="text-amber-100">Data and limitations:</strong> readable public source files may be sent to the deployment-configured AI provider after common credential patterns and sensitive file paths are filtered. Do not scan repositories containing material you are not authorized to share. SwarmOps does not execute code or tests. A generated change is a proposal, not proof of correctness, approval, merge, or deployment.
+        <strong className="text-amber-100">Data and limitations:</strong> readable public source files may be sent to your selected AI provider after common credential patterns and sensitive file paths are filtered. Do not scan repositories containing material you are not authorized to share. SwarmOps does not execute code or tests. A generated change is a proposal, not proof of correctness, approval, merge, or deployment.
       </aside>
     </main>
   );

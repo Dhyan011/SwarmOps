@@ -101,7 +101,7 @@ export default function LoginPage() {
     }
   };
 
-  const continueToWorkspace = () => navigate(destination, { replace: true });
+  const continueToWorkspace = () => navigate("/onboarding", { replace: true });
   const connected = Array.isArray(installations) && installations.length > 0;
 
   return (
@@ -130,7 +130,7 @@ export default function LoginPage() {
               </ol>
             </div>
 
-            <p className="mt-5 text-xs leading-5 text-slate-400">You can start with manually supplied incident details without connecting GitHub. The model provider is configured by the deployment; model API keys are not stored in this browser.</p>
+            <p className="mt-5 text-xs leading-5 text-slate-400">After Google sign-in, configure your own AI provider and key. GitHub remains optional and separate. Provider keys are never saved in browser storage.</p>
           </section>
 
           <section className="rounded-xl border border-white/10 bg-[#0f151f] p-5 sm:p-6" aria-labelledby="signin-title">
@@ -155,7 +155,7 @@ export default function LoginPage() {
                   </div>
                   {!connected && <button type="button" onClick={handleConnectGitHub} disabled={busy === "github"} className="mt-3 rounded-md border border-white/15 px-3 py-2 text-sm font-medium text-white hover:bg-white/5 disabled:opacity-60">{busy === "github" ? "Opening GitHub…" : "Connect GitHub App"}</button>}
                 </div>
-                <button type="button" onClick={continueToWorkspace} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-300 px-4 font-semibold text-slate-950 hover:bg-blue-200">Continue to workspace <HiArrowRight className="h-4 w-4" /></button>
+                <button type="button" onClick={continueToWorkspace} className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-blue-300 px-4 font-semibold text-slate-950 hover:bg-blue-200">Set up your AI provider <HiArrowRight className="h-4 w-4" /></button>
               </div>
             ) : (
               <button type="button" onClick={handleGoogleSignIn} disabled={busy === "google" || !supabase} className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-lg bg-white px-4 font-semibold text-slate-900 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60">

@@ -188,3 +188,34 @@ async def test_contribution_scan_is_owner_scoped_and_publication_claim_is_retrya
     assert persisted["result"]["publication"]["status"] == "pr_created_issue_failed"
     await store.claim_contribution_publication(scan_id=scan_id, owner_id="user-a")
     await store.close()
+
+
+@pytest.mark.asyncio
+async def test_ai_provider_credentials_are_owner_scoped_and_replaceable(tmp_path):
+    url = f"sqlite+aiosqlite:///{tmp_path / 'provider-credentials.db'}"
+    engine = create_async_engine(url)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    await engine.dispose()
+
+    store = IncidentDB(database_url=url)
+    await store.save_ai_provider_credential(
+        owner_id="user-a", provider="openrouter", model="model-a", encrypted_key="v1:ciphertext-a"
+    )
+    await store.save_ai_provider_credential(
+        owner_id="user-b", provider="anthropic", model="model-b", encrypted_key="v1:ciphertext-b"
+    )
+    await store.save_ai_provider_credential(
+        owner_id="user-a", provider="openai", model="model-c", encrypted_key="v1:ciphertext-c"
+    )
+    assert await store.get_ai_provider_credential("user-a") == {
+        "owner_id": "user-a", "provider": "openai", "model": "model-c", "encrypted_key": "v1:ciphertext-c"
+    }
+    assert await store.get_ai_provider_credential("user-b") == {
+        "owner_id": "user-b", "provider": "anthropic", "model": "model-b", "encrypted_key": "v1:ciphertext-b"
+    }
+    assert await store.get_ai_provider_credential("user-c") is None
+    assert await store.delete_ai_provider_credential("user-a") is True
+    assert await store.get_ai_provider_credential("user-a") is None
+    assert await store.get_ai_provider_credential("user-b") is not None
+    await store.close()

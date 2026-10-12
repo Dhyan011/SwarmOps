@@ -14,7 +14,7 @@ services:
         sync: false
       - key: SUPABASE_JWT_AUDIENCE
         value: authenticated
-      - key: OPENROUTER_API_KEY
+      - key: BYOK_ENCRYPTION_KEY
         sync: false
       - key: GITHUB_APP_ID
         sync: false

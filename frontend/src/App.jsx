@@ -13,27 +13,42 @@ import AuthCallbackPage from "./pages/AuthCallbackPage";
 import SettingsPage from "./pages/SettingsPage";
 import ContributePage from "./pages/ContributePage";
 import ContributionReviewPage from "./pages/ContributionReviewPage";
+import AIProviderSetupPage from "./pages/AIProviderSetupPage";
+import api from "./services/api";
 
 function AuthGuard({ children }) {
   const location = useLocation();
-  const [authState, setAuthState] = useState(() => ({ ready: !supabase, authenticated: false }));
+  const [authState, setAuthState] = useState(() => ({ ready: !supabase, authenticated: false, providerConfigured: false }));
 
   useEffect(() => {
     if (!supabase) return undefined;
     let active = true;
+    const loadSession = async (session) => {
+      if (!session) {
+        if (active) setAuthState({ ready: true, authenticated: false, providerConfigured: false });
+        return;
+      }
+      try {
+        const { data } = await api.get("/api/v1/ai/config");
+        if (active) setAuthState({ ready: true, authenticated: true, providerConfigured: data?.configured === true });
+      } catch {
+        if (active) setAuthState({ ready: true, authenticated: true, providerConfigured: false });
+      }
+    };
     supabase.auth.getSession()
-      .then(({ data, error }) => {
-        if (active) setAuthState({ ready: true, authenticated: !error && Boolean(data?.session) });
-      })
-      .catch(() => {
-        if (active) setAuthState({ ready: true, authenticated: false });
-      });
+      .then(({ data, error }) => error ? loadSession(null) : loadSession(data?.session))
+      .catch(() => { if (active) setAuthState({ ready: true, authenticated: false, providerConfigured: false }); });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) setAuthState({ ready: true, authenticated: Boolean(session) });
+      window.setTimeout(() => loadSession(session), 0);
     });
+    const onProviderConfigured = () => {
+      if (active) setAuthState((current) => ({ ...current, ready: true, authenticated: true, providerConfigured: true }));
+    };
+    window.addEventListener("swarmops:byok-configured", onProviderConfigured);
     return () => {
       active = false;
       subscription.unsubscribe();
+      window.removeEventListener("swarmops:byok-configured", onProviderConfigured);
     };
   }, []);
 
@@ -42,6 +57,12 @@ function AuthGuard({ children }) {
   }
   if (!authState.authenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  if (!authState.providerConfigured && location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" replace />;
+  }
+  if (authState.providerConfigured && location.pathname === "/onboarding") {
+    return <Navigate to="/dashboard" replace />;
   }
   return children;
 }
@@ -69,6 +90,7 @@ export default function App() {
             <AuthGuard>
               <Layout>
                 <Routes>
+                  <Route path="/onboarding" element={<AIProviderSetupPage onboarding />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/new-incident" element={<NewIncidentPage />} />
                   <Route path="/incident/:id" element={<IncidentPage />} />

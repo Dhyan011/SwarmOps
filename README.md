@@ -115,12 +115,13 @@ SwarmOps is built with a meticulously designed architecture that balances high p
 Using SwarmOps is designed to be as seamless as possible:
 
 1. **Sign in to SwarmOps**: Use Google through Supabase Auth. The frontend needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; the backend independently verifies the resulting access token. Google is the identity provider; it does not grant repository access.
-2. **Connect GitHub when needed**: Install the configured GitHub App separately. Repository access is limited by the installation and per-operation checks; no personal access token is stored. GitHub connection is optional for manual-evidence investigations.
-3. **Report an incident**: Start an investigation with a short description and any available service, logs/stack trace/code, and optional public GitHub URL. A public repository URL is context, not write permission; manual evidence is not live telemetry.
-4. **Watch the Swarm**: Authenticated Socket.IO progress events are delivered to the user's private room; raw model token streams are not sent.
-5. **Review findings**: Treat model output as a hypothesis. Check the evidence, policy findings, proposed patch, and `tests_executed` state (currently false; generated tests have not been executed).
-6. **Request a PR**: Only a `security_reviewer` or `administrator` role in trusted Supabase `app_metadata.roles` can approve a policy-cleared proposal. SwarmOps creates a pull request, not a deployment; a PR does not prove that an incident is resolved.
-7. **Scan for an open-source contribution**: Open **Contributions**, enter a public `github.com/owner/repository` URL, inspect the pinned-commit finding and exact issue/PR text and diff, then explicitly confirm. A linked GitHub App needs repository metadata read, Issues write, Contents write, and Pull requests write. SwarmOps creates an issue and PR but does not merge, run CI, or claim tests passed. A failed second write is shown as partial; retry with the same reviewed payload.
+2. **Set up your AI provider (required)**: Choose OpenRouter, OpenAI, Anthropic, or Google Gemini. Enter your own API key, retrieve the provider's available models, run a connection test, and save. An account without a saved configuration cannot use AI features.
+3. **Connect GitHub when needed**: Install the configured GitHub App separately. Repository access is limited by the installation and per-operation checks; no personal access token is stored. GitHub connection is optional for manual-evidence investigations.
+4. **Report an incident**: Start an investigation with a short description and any available service, logs/stack trace/code, and optional public GitHub URL. A public repository URL is context, not write permission; manual evidence is not live telemetry.
+5. **Watch the Swarm**: Authenticated Socket.IO progress events are delivered to the user's private room; raw model token streams are not sent.
+6. **Review findings**: Treat model output as a hypothesis. Check the evidence, policy findings, proposed patch, and `tests_executed` state (currently false; generated tests have not been executed).
+7. **Request a PR**: Only a `security_reviewer` or `administrator` role in trusted Supabase `app_metadata.roles` can approve a policy-cleared proposal. SwarmOps creates a pull request, not a deployment; a PR does not prove that an incident is resolved.
+8. **Scan for an open-source contribution**: Open **Contributions**, enter a public `github.com/owner/repository` URL, inspect the pinned-commit finding and exact issue/PR text and diff, then explicitly confirm. A linked GitHub App needs repository metadata read, Issues write, Contents write, and Pull requests write. SwarmOps creates an issue and PR but does not merge, run CI, or claim tests passed. A failed second write is shown as partial; retry with the same reviewed payload.
 
 ---
 
@@ -129,7 +130,9 @@ Using SwarmOps is designed to be as seamless as possible:
 SwarmOps is built with a **Privacy First** mindset:
 - **Verified account identity:** Supabase user IDs are used for ownership; incident records, audit events, and GitHub installation links are stored in PostgreSQL.
 - **Separate access:** Supabase establishes identity, while the GitHub App authorizes repository operations. GitHub App private keys and short-lived installation tokens remain on the backend. The browser uses tab-scoped Supabase session storage; retired browser model-key settings are cleared.
-- **Model processing:** Incident descriptions, code, and supplied evidence may be sent to the deployment-configured OpenRouter-compatible model provider. Operators must review the provider's data-handling terms; do not submit secrets or personal data unnecessarily.
+- **Bring your own key:** Each user configures one provider/key/model for their own account. Supported providers are OpenRouter, OpenAI, Anthropic, and Google Gemini. Provider calls use only that authenticated user's saved credential; there is no shared platform key, cross-user lookup, or silent provider fallback. Models are listed from the selected provider and can be changed by testing and saving a replacement configuration.
+- **Credential protection:** Keys are accepted over the authenticated API, encrypted at rest with AES-256-GCM and a server-only `BYOK_ENCRYPTION_KEY`, and decrypted only for the owning user's provider request. The key is never returned by an API, written to browser storage, included in prompts, logged, or placed in an incident record. The encryption key must be provisioned separately from the database and backed up securely; rotating it requires a deliberate credential re-encryption procedure.
+- **Model processing:** Incident descriptions, code, supplied evidence, and public source text may be sent to the provider selected by that account. Review its data-handling terms; do not submit secrets or personal data unnecessarily.
 - **Contribution scans:** Only canonical public GitHub repositories are supported. Bounded source snapshots are pinned to a commit; common credential patterns and sensitive file paths are filtered before model analysis, but automated redaction is not a guarantee. The scan and generated proposal are persisted for the authenticated owner. External issue/PR text and code are public once confirmed.
 - **Production persistence:** Configure a PostgreSQL `DATABASE_URL` and run Alembic migrations. Incident and audit data are not stored in a JSON fallback.
 
@@ -142,7 +145,7 @@ SwarmOps is built with a **Privacy First** mindset:
 * **FastAPI**: High-performance async web framework.
 * **Socket.IO**: Real-time event streaming (`python-socketio`).
 * **Pydantic**: Strict data validation.
-* **OpenRouter**: The LLM engine powering the agents (dynamic client initialization per request).
+* **BYOK providers**: OpenRouter, OpenAI, Anthropic, and Google Gemini; provider/model choices and encrypted user credentials are resolved per authenticated request.
 
 ### Frontend (Real-time Dashboard)
 * **React + Vite**: Blazing fast frontend build tool.
@@ -176,7 +179,7 @@ The FastAPI backend is configured to serve the compiled React frontend automatic
 cd backend
 uvicorn main:socket_app --host 0.0.0.0 --port 8000 --reload
 ```
-Open `http://localhost:8000` after configuring Supabase Auth, PostgreSQL, CORS, the public base URL, and the Google OAuth provider/redirect URL. For local development, use the environment examples and allow the matching callback URL in Supabase. Model credentials are configured on the backend; they are not entered into the browser.
+Open `http://localhost:8000` after configuring Supabase Auth, PostgreSQL, CORS, the public base URL, Google OAuth provider/redirect URL, and a strong backend-only `BYOK_ENCRYPTION_KEY`. Generate the encryption key with `python -c "import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode().rstrip('='))"`; keep it outside source control and separate from database backups. Each signed-in user enters their provider credential in the authenticated onboarding form; the key is transient in browser memory only and is never saved to browser storage.
 
 ---
 
@@ -186,7 +189,7 @@ The multi-stage Dockerfile can build a **single-container deployment**. The incl
 
 To deploy on Render:
 1. Apply the Render Blueprint from `render.yaml`, or create the backend web service and static frontend separately.
-2. Configure the backend values `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_JWT_AUDIENCE`, `APP_STATE_SECRET`, and `OPENROUTER_API_KEY`. Point `PUBLIC_BASE_URL` and `CORS_ALLOWED_ORIGINS` at the frontend's public URL/origin.
+2. Configure the backend values `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_JWT_AUDIENCE`, `APP_STATE_SECRET`, and a strong server-only `BYOK_ENCRYPTION_KEY`. Do not configure or deploy any shared model-provider API key. Point `PUBLIC_BASE_URL` and `CORS_ALLOWED_ORIGINS` at the frontend's public URL/origin.
 3. Configure frontend build values `VITE_API_URL` (the backend URL), `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY`.
 4. For GitHub PR and contribution support, configure `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, and `GITHUB_APP_PRIVATE_KEY`. Set the GitHub App setup URL to `https://<backend-host>/api/v1/github/installation/callback`; grant Metadata read, Issues write, Contents write, and Pull requests write. Runtime tokens are further restricted to one repository and to the permission subset needed by each operation. Existing installations may need their owner to approve the new Issues permission.
 5. Enable Google as a Supabase Auth provider and allow `https://<frontend-host>/auth/callback` as a redirect destination. GitHub App installation is configured separately and is not used for SwarmOps login.

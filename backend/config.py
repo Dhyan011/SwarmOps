@@ -11,10 +11,7 @@ from dotenv import load_dotenv
 _env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=_env_path)
 
-# ── OpenRouter & GitHub Configuration ──
-OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-LLM_MODEL: str = os.getenv("LLM_MODEL", "openrouter/free")
+# ── GitHub Configuration (AI provider credentials are user-owned BYOK records) ──
 GITHUB_APP_ID: str = os.getenv("GITHUB_APP_ID", "")
 GITHUB_APP_SLUG: str = os.getenv("GITHUB_APP_SLUG", "")
 GITHUB_APP_PRIVATE_KEY: str = os.getenv("GITHUB_APP_PRIVATE_KEY", "").replace("\\n", "\n")

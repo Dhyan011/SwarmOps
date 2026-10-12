@@ -10,7 +10,7 @@ import {
   HiOutlinePlus,
 } from "react-icons/hi2";
 import IncidentCard from "../components/IncidentCard";
-import { getGitHubInstallations, getHealth, getIncidents } from "../services/api";
+import { getAIConfig, getGitHubInstallations, getIncidents } from "../services/api";
 import { useIncident } from "../context/useIncident";
 
 const statusOptions = [
@@ -37,7 +37,7 @@ export default function DashboardPage() {
   const { incidents, setIncidents } = useIncident();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [integrationStatus, setIntegrationStatus] = useState({ loading: true, llmConfigured: null, githubLinked: null });
+  const [integrationStatus, setIntegrationStatus] = useState({ loading: true, llmConfigured: null, aiProvider: "", aiModel: "", githubLinked: null });
   const [reloadKey, setReloadKey] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSeverity, setFilterSeverity] = useState("all");
@@ -61,11 +61,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let active = true;
-    Promise.allSettled([getHealth(), getGitHubInstallations()]).then(([health, github]) => {
+    Promise.allSettled([getAIConfig(), getGitHubInstallations()]).then(([ai, github]) => {
       if (!active) return;
       setIntegrationStatus({
         loading: false,
-        llmConfigured: health.status === "fulfilled" ? Boolean(health.value.data?.llm_configured) : null,
+        llmConfigured: ai.status === "fulfilled" ? Boolean(ai.value.data?.configured) : null,
+        aiProvider: ai.status === "fulfilled" ? ai.value.data?.provider || "" : "",
+        aiModel: ai.status === "fulfilled" ? ai.value.data?.model || "" : "",
         githubLinked: github.status === "fulfilled" ? Array.isArray(github.value.data) && github.value.data.length > 0 : null,
       });
     });
@@ -114,7 +116,7 @@ export default function DashboardPage() {
 
       <section aria-label="Integration readiness" className="grid gap-3 sm:grid-cols-2">
         <div className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">
-          <div><p className="text-xs text-slate-400">Model provider</p><p className="mt-1 text-sm font-medium text-white">{integrationStatus.loading ? "Checking…" : integrationStatus.llmConfigured === null ? "Status unavailable" : integrationStatus.llmConfigured ? "Configured on backend" : "Configuration missing"}</p></div>
+          <div><p className="text-xs text-slate-400">Your AI provider</p><p className="mt-1 text-sm font-medium text-white">{integrationStatus.loading ? "Checking…" : integrationStatus.llmConfigured === null ? "Status unavailable" : integrationStatus.llmConfigured ? `${integrationStatus.aiProvider} · ${integrationStatus.aiModel}` : "Configuration missing"}</p></div>
           <span className={`h-2 w-2 rounded-full ${integrationStatus.llmConfigured ? "bg-emerald-300" : "bg-amber-300"}`} aria-hidden="true" />
         </div>
         <div className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">

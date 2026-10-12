@@ -9,7 +9,7 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Supabase identity is sent separately from the deployment-managed model key.
+// Supabase identity authenticates every request; BYOK keys are sent only to AI setup endpoints.
 api.interceptors.request.use(async (config) => {
   const accessToken = await getSupabaseAccessToken();
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
@@ -21,6 +21,12 @@ export const getIncidents = (params) => api.get("/api/v1/incidents", { params })
 export const getIncident = (id) => api.get(`/api/v1/incidents/${id}`);
 export const handleIncidentAction = (id, action) => api.post(`/api/v1/incidents/${id}/action`, { action });
 export const getHealth = () => api.get("/health");
+export const getAIConfig = () => api.get("/api/v1/ai/config");
+export const getAIProviders = () => api.get("/api/v1/ai/providers");
+export const getAIModels = (provider, api_key) => api.post("/api/v1/ai/models", { provider, api_key });
+export const testAIProvider = (provider, api_key, model) => api.post("/api/v1/ai/test", { provider, api_key, model });
+export const saveAIConfig = (provider, api_key, model) => api.put("/api/v1/ai/config", { provider, api_key, model });
+export const deleteAIConfig = () => api.delete("/api/v1/ai/config");
 export const getGitHubInstallations = () => api.get("/api/v1/github/installations");
 export const startGitHubInstallation = () => api.post("/api/v1/github/install-url");
 export const scanPublicRepository = (repositoryUrl) => api.post("/api/v1/contributions/scan", { repository_url: repositoryUrl });

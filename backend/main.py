@@ -1,9 +1,9 @@
 """
 SwarmOps — FastAPI Entry Point
-Production multi-agent incident response system powered by OpenRouter LLMs.
+Multi-agent incident response using authenticated users' own configured AI providers.
 """
 
-from fastapi import FastAPI, HTTPException, Header, Request, Depends, Query
+from fastapi import FastAPI, HTTPException, Request, Depends, Query
 import os
 import asyncio
 from contextlib import asynccontextmanager
@@ -16,7 +16,6 @@ from slowapi.errors import RateLimitExceeded
 import socketio
 
 from config import (
-    OPENROUTER_API_KEY,
     ALLOWED_ORIGINS,
     APP_STATE_SECRET,
     PUBLIC_BASE_URL,
@@ -30,6 +29,9 @@ from models.schemas import (
     ContributionScanRequest,
     IncidentCreate,
     IncidentReport,
+    ProviderConfigRequest,
+    ProviderKeyRequest,
+    ProviderTestRequest,
 )
 from agents.orchestrator import Orchestrator
 from agents.contribution_scanner import ContributionScanner
@@ -46,6 +48,7 @@ from tools.github_fetcher import fetch_github_repository_snapshot
 from tools.github_issue import create_github_issue
 from tools.github_pr import apply_file_patch, create_github_pr, parse_github_repository, parse_unified_diff
 from security_policy import PolicyResult, contains_possible_secret, evaluate_patch
+from tools.byok import PROVIDERS, decrypt_provider_key, encrypt_provider_key, list_models, test_completion, validate_encryption_key
 
 # ── App Initialisation ──
 @asynccontextmanager
@@ -106,7 +109,7 @@ orchestrator = Orchestrator(sio)
 max_concurrent_investigations = asyncio.Semaphore(MAX_CONCURRENT_INVESTIGATIONS)
 
 
-async def run_limited_investigation(incident: IncidentCreate, api_key: str, owner_id: str):
+async def run_limited_investigation(incident: IncidentCreate, provider_config: dict[str, str], owner_id: str):
     try:
         await asyncio.wait_for(
             max_concurrent_investigations.acquire(), timeout=INVESTIGATION_QUEUE_WAIT_SECONDS
@@ -121,7 +124,7 @@ async def run_limited_investigation(incident: IncidentCreate, api_key: str, owne
 
     try:
         return await asyncio.wait_for(
-            orchestrator.investigate(incident, api_key=api_key, owner_id=owner_id),
+            orchestrator.investigate(incident, provider_config=provider_config, owner_id=owner_id),
             timeout=INVESTIGATION_TIMEOUT_SECONDS,
         )
     except asyncio.TimeoutError as exc:
@@ -154,6 +157,19 @@ def validate_contribution_patch(
     except (TypeError, ValueError):
         return PolicyResult("needs_manual_review", ("patch_does_not_apply_to_scanned_snapshot",), (), False)
     return policy
+
+
+async def require_user_provider(owner_id: str) -> dict[str, str]:
+    """Load only this authenticated owner's BYOK credential; never fall back."""
+    row = await db.get_ai_provider_credential(owner_id)
+    if row is None:
+        raise HTTPException(status_code=428, detail="Configure your own AI provider in Settings before using AI features.")
+    return {
+        "provider": row["provider"],
+        "model": row["model"],
+        "api_key": decrypt_provider_key(row["encrypted_key"], owner_id),
+    }
+
 
 # ── Socket.IO events ──
 @sio.event
@@ -199,7 +215,6 @@ async def health_check():
     return {
         "status": "alive",
         "service": "SwarmOps",
-        "llm_configured": bool(OPENROUTER_API_KEY),
     }
 
 @app.get("/ready", tags=["system"])
@@ -207,9 +222,70 @@ async def readiness_check():
     """Readiness probe verifies database connectivity without exposing details."""
     try:
         await db.health()
+        validate_encryption_key()
     except Exception as exc:
-        raise HTTPException(status_code=503, detail="Database is not ready.") from exc
+        raise HTTPException(status_code=503, detail="Database or encrypted provider-key storage is not ready.") from exc
     return {"status": "ready"}
+
+
+@app.get("/api/v1/ai/providers", tags=["ai-settings"])
+async def list_ai_providers(user: Principal = Depends(get_current_user)):
+    return [{"id": provider, "name": details["label"]} for provider, details in PROVIDERS.items()]
+
+
+@app.get("/api/v1/ai/config", tags=["ai-settings"])
+async def get_ai_config(user: Principal = Depends(get_current_user)):
+    row = await db.get_ai_provider_credential(user.user_id)
+    if not row:
+        return {"configured": False, "provider": None, "model": None}
+    # Never return ciphertext, plaintext, key fragments, or a reversible key hint.
+    return {"configured": True, "provider": row["provider"], "model": row["model"]}
+
+
+@app.post("/api/v1/ai/models", tags=["ai-settings"])
+async def get_ai_models(payload: ProviderKeyRequest, user: Principal = Depends(get_current_user)):
+    api_key = payload.api_key.get_secret_value().strip()
+    if not api_key:
+        raise HTTPException(status_code=422, detail="Enter a valid provider API key.")
+    return {"models": await list_models(payload.provider, api_key)}
+
+
+@app.post("/api/v1/ai/test", tags=["ai-settings"])
+async def test_ai_provider(payload: ProviderTestRequest, user: Principal = Depends(get_current_user)):
+    api_key = payload.api_key.get_secret_value().strip()
+    if not api_key:
+        raise HTTPException(status_code=422, detail="Enter a valid provider API key.")
+    models = await list_models(payload.provider, api_key)
+    if payload.model not in {entry["id"] for entry in models}:
+        raise HTTPException(status_code=422, detail="Select a model returned by the selected provider.")
+    await test_completion(payload.provider, api_key, payload.model)
+    return {"tested": True, "provider": payload.provider, "model": payload.model}
+
+
+@app.put("/api/v1/ai/config", tags=["ai-settings"])
+async def save_ai_config(payload: ProviderConfigRequest, user: Principal = Depends(get_current_user)):
+    api_key = payload.api_key.get_secret_value().strip()
+    if not api_key:
+        raise HTTPException(status_code=422, detail="Enter a valid provider API key.")
+    encrypted_key = encrypt_provider_key(api_key, user.user_id)
+    models = await list_models(payload.provider, api_key)
+    if payload.model not in {entry["id"] for entry in models}:
+        raise HTTPException(status_code=422, detail="Select a model returned by the selected provider.")
+    # Persist only after a real provider completion succeeded; never save rejected credentials.
+    await test_completion(payload.provider, api_key, payload.model)
+    await db.save_ai_provider_credential(
+        owner_id=user.user_id,
+        provider=payload.provider,
+        model=payload.model,
+        encrypted_key=encrypted_key,
+    )
+    return {"configured": True, "provider": payload.provider, "model": payload.model}
+
+
+@app.delete("/api/v1/ai/config", tags=["ai-settings"])
+async def delete_ai_config(user: Principal = Depends(get_current_user)):
+    removed = await db.delete_ai_provider_credential(user.user_id)
+    return {"configured": False, "removed": removed}
 
 
 @app.post("/api/v1/github/install-url", tags=["integrations"])
@@ -277,15 +353,14 @@ async def scan_public_repository(
     user: Principal = Depends(get_current_user),
 ):
     """Analyze public GitHub source pinned to one SHA; no write permission is used here."""
-    if not OPENROUTER_API_KEY:
-        raise HTTPException(status_code=503, detail="Repository analysis is not configured.")
+    provider_config = await require_user_provider(user.user_id)
     repo_owner, repo_name = parse_github_repository(payload.repository_url)
     canonical_url = f"https://github.com/{repo_owner}/{repo_name}"
     scan_id = str(uuid4())
     try:
         snapshot = await fetch_github_repository_snapshot(canonical_url)
         raw = await ContributionScanner(sio).scan({
-            "api_key": OPENROUTER_API_KEY,
+            "provider_config": provider_config,
             "owner_id": user.user_id,
             "incident_id": scan_id,
             "phase": "contribution_scan",
@@ -553,19 +628,16 @@ async def create_incident(
     request: Request,
     incident: IncidentCreate,
     user: Principal = Depends(get_current_user),
-    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
 ):
     """
     Triggers the full multi-agent investigation pipeline.
     Streams real-time agent events via Socket.IO while processing.
     Returns the complete IncidentReport once all phases finish.
     """
-    provider_key = x_api_key or OPENROUTER_API_KEY
-    if not provider_key:
-        raise HTTPException(status_code=503, detail="LLM provider credentials are not configured.")
+    provider_config = await require_user_provider(user.user_id)
         
     try:
-        report = await run_limited_investigation(incident, provider_key, user.user_id)
+        report = await run_limited_investigation(incident, provider_config, user.user_id)
         await db.set(report.incident_id, report)
         return report
     except HTTPException:

@@ -87,6 +87,16 @@ class ContributionScanRecord(Base):
     result_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
 
 
+class AIProviderCredential(Base):
+    __tablename__ = "ai_provider_credentials"
+
+    owner_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    model: Mapped[str] = mapped_column(String(200), nullable=False)
+    encrypted_key: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class IncidentDB:
     """Database access object with no implicit persistence fallback."""
 
@@ -301,6 +311,45 @@ class IncidentDB:
                     RepositoryConnection.owner_id == owner_id,
                     RepositoryConnection.installation_id == installation_id,
                 )
+            )
+            return bool(result.rowcount)
+
+    async def save_ai_provider_credential(
+        self, *, owner_id: str, provider: str, model: str, encrypted_key: str
+    ) -> None:
+        sessions = self._session_factory()
+        async with sessions() as session, session.begin():
+            row = await session.get(AIProviderCredential, owner_id, with_for_update=True)
+            if row is None:
+                row = AIProviderCredential(
+                    owner_id=owner_id, provider=provider, model=model,
+                    encrypted_key=encrypted_key, updated_at=datetime.now(timezone.utc),
+                )
+                session.add(row)
+            else:
+                row.provider = provider
+                row.model = model
+                row.encrypted_key = encrypted_key
+                row.updated_at = datetime.now(timezone.utc)
+
+    async def get_ai_provider_credential(self, owner_id: str) -> dict[str, str] | None:
+        sessions = self._session_factory()
+        async with sessions() as session:
+            row = await session.get(AIProviderCredential, owner_id)
+            if row is None:
+                return None
+            return {
+                "owner_id": row.owner_id,
+                "provider": row.provider,
+                "model": row.model,
+                "encrypted_key": row.encrypted_key,
+            }
+
+    async def delete_ai_provider_credential(self, owner_id: str) -> bool:
+        sessions = self._session_factory()
+        async with sessions() as session, session.begin():
+            result = await session.execute(
+                delete(AIProviderCredential).where(AIProviderCredential.owner_id == owner_id)
             )
             return bool(result.rowcount)
 
