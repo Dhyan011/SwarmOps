@@ -6,12 +6,10 @@ import Layout from "./components/Layout";
 import DashboardPage from "./pages/DashboardPage";
 import NewIncidentPage from "./pages/NewIncidentPage";
 import IncidentPage from "./pages/IncidentPage";
-import AnalyticsPage from "./pages/AnalyticsPage";
 import ReportPage from "./pages/ReportPage";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import AuthCallbackPage from "./pages/AuthCallbackPage";
-import MemoryPage from "./pages/MemoryPage";
 import SettingsPage from "./pages/SettingsPage";
 
 function AuthGuard({ children }) {
@@ -72,9 +70,7 @@ export default function App() {
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/new-incident" element={<NewIncidentPage />} />
                   <Route path="/incident/:id" element={<IncidentPage />} />
-                  <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/report/:id" element={<ReportPage />} />
-                  <Route path="/memory" element={<MemoryPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="*" element={<NotFoundPage />} />
                 </Routes>

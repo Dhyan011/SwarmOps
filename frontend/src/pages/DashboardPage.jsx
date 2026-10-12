@@ -1,196 +1,172 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
+  HiArrowPath,
   HiOutlineBolt,
+  HiOutlineCheckCircle,
   HiOutlineClock,
-  HiOutlineCpuChip,
-  HiOutlineCheckBadge,
+  HiOutlineFunnel,
   HiOutlineMagnifyingGlass,
-  HiOutlineInboxStack,
-  HiOutlineFunnel
+  HiOutlinePlus,
 } from "react-icons/hi2";
-import { motion } from "framer-motion";
-import MetricCard from "../components/MetricCard";
 import IncidentCard from "../components/IncidentCard";
-import EmptyState from "../components/EmptyState";
-import { getIncidents } from "../services/api";
+import { getGitHubInstallations, getHealth, getIncidents } from "../services/api";
 import { useIncident } from "../context/IncidentContext";
 
+const statusOptions = [
+  ["all", "All statuses"],
+  ["investigating", "Investigating"],
+  ["awaiting_review", "Awaiting review"],
+  ["needs_review", "Needs review"],
+  ["validation_failed", "Validation failed"],
+  ["pr_created", "PR created"],
+  ["rejected", "Rejected"],
+  ["failed", "Failed"],
+];
+
+function Summary({ label, value, icon: Icon, tone = "text-slate-200" }) {
+  return (
+    <div className="border-l border-white/10 pl-4">
+      <div className="flex items-center gap-2 text-xs font-medium text-slate-400"><Icon className="h-4 w-4" />{label}</div>
+      <p className={`mt-2 text-2xl font-semibold tabular-nums ${tone}`}>{value}</p>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
-  const navigate = useNavigate();
   const { incidents, setIncidents } = useIncident();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [integrationStatus, setIntegrationStatus] = useState({ loading: true, llmConfigured: null, githubLinked: null });
+  const [reloadKey, setReloadKey] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSeverity, setFilterSeverity] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
   useEffect(() => {
+    let active = true;
     getIncidents()
-      .then((res) => {
-        const data = res.data;
-        setIncidents(Array.isArray(data) ? data : data?.incidents || []);
+      .then(({ data }) => {
+        if (!active) return;
+        const rows = Array.isArray(data) ? data : data?.incidents || [];
+        setIncidents(rows);
+        setError("");
       })
-      .catch(() => {});
-  }, [setIncidents]);
+      .catch((cause) => {
+        if (active) setError(cause.response?.data?.detail || "Investigations could not be loaded. Check the connection and retry.");
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [reloadKey, setIncidents]);
 
-  const filteredIncidents = incidents.filter(inc => {
-    const matchesSearch = inc.description?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          inc.incident_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          inc.service?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSeverity = filterSeverity === "all" || inc.severity === filterSeverity;
-    const matchesStatus = filterStatus === "all" || inc.status === filterStatus;
-    return matchesSearch && matchesSeverity && matchesStatus;
+  useEffect(() => {
+    let active = true;
+    Promise.allSettled([getHealth(), getGitHubInstallations()]).then(([health, github]) => {
+      if (!active) return;
+      setIntegrationStatus({
+        loading: false,
+        llmConfigured: health.status === "fulfilled" ? Boolean(health.value.data?.llm_configured) : null,
+        githubLinked: github.status === "fulfilled" ? Array.isArray(github.value.data) && github.value.data.length > 0 : null,
+      });
+    });
+    return () => { active = false; };
+  }, []);
+
+  const counts = useMemo(() => ({
+    active: incidents.filter((item) => item.status === "investigating").length,
+    review: incidents.filter((item) => ["awaiting_review", "needs_review"].includes(item.status)).length,
+    prs: incidents.filter((item) => item.status === "pr_created").length,
+  }), [incidents]);
+
+  const filteredIncidents = incidents.filter((incident) => {
+    const query = searchTerm.trim().toLowerCase();
+    const matchesSearch = !query || [incident.description, incident.incident_id, incident.service]
+      .some((value) => String(value || "").toLowerCase().includes(query));
+    return matchesSearch
+      && (filterSeverity === "all" || incident.severity === filterSeverity)
+      && (filterStatus === "all" || incident.status === filterStatus);
   });
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100 } }
+  const retry = () => {
+    setLoading(true);
+    setError("");
+    setReloadKey((value) => value + 1);
   };
 
   return (
-    <motion.div 
-      className="flex flex-col lg:flex-row gap-8 h-full"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      {/* Left Column (40%) */}
-      <div className="w-full lg:w-2/5 flex flex-col gap-6">
-        
-        {/* Provider Status */}
-        <motion.div variants={itemVariants} className="glass-card p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center">
-              <span className="text-indigo-400">🔷</span>
-            </div>
-            <div>
-              <p className="text-white font-bold text-sm">Gemini AI</p>
-              <p className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider">Connected</p>
-            </div>
-          </div>
-          <div className="h-6 w-px bg-white/10" />
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🐙</span>
-            <div>
-              <p className="text-white font-bold text-sm">@dhyanpatel</p>
-              <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">GitHub</p>
-            </div>
-          </div>
-        </motion.div>
+    <main className="mx-auto max-w-7xl space-y-8">
+      <header className="flex flex-col gap-5 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-blue-200">Incident workspace</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Investigations</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">Review active work, inspect what is known, and see what still needs attention.</p>
+        </div>
+        <Link to="/new-incident" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-300 px-4 font-semibold text-slate-950 hover:bg-blue-200">
+          <HiOutlinePlus className="h-4 w-4" /> Investigate an incident
+        </Link>
+      </header>
 
-        {/* Metrics Grid */}
-        <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4">
-          <MetricCard
-            label="Total Incidents"
-            value={incidents.length}
-            icon={HiOutlineBolt}
-            trend={incidents.length > 0 ? "up" : "none"}
-            trendValue={incidents.length > 0 ? "+1 recent" : "No data yet"}
-            delay={0}
-          />
-          <MetricCard
-            label="Resolved Rate"
-            value={incidents.length ? Math.round(incidents.filter(i => i.status === "resolved" || i.status === "deployed").length / incidents.length * 100) : 100}
-            suffix="%"
-            icon={HiOutlineCheckBadge}
-            trend="none"
-            trendValue="Overall resolution rate"
-            delay={80}
-          />
-          <MetricCard
-            label="Avg Confidence"
-            value="94"
-            suffix="%"
-            icon={HiOutlineCpuChip}
-            trend="up"
-            trendValue="High accuracy"
-            delay={160}
-          />
-          <MetricCard
-            label="Active Now"
-            value={incidents.filter(i => i.status === "investigating").length}
-            icon={HiOutlineClock}
-            trend="none"
-            trendValue="Running swarms"
-            delay={240}
-          />
-        </motion.div>
+      <section aria-label="Investigation summary" className="grid gap-5 border-b border-white/10 pb-6 sm:grid-cols-3">
+        <Summary label="Active investigations" value={counts.active} icon={HiOutlineBolt} tone="text-blue-100" />
+        <Summary label="Awaiting human review" value={counts.review} icon={HiOutlineClock} tone="text-amber-100" />
+        <Summary label="Pull requests created" value={counts.prs} icon={HiOutlineCheckCircle} tone="text-slate-100" />
+      </section>
 
-        {/* Action Button */}
-        <motion.div variants={itemVariants}>
-          <button
-            onClick={() => navigate("/new-incident")}
-            className="w-full btn-primary py-4 rounded-xl text-lg flex items-center justify-center gap-2 shadow-glow-indigo transition-transform card-3d"
-          >
-            <HiOutlineBolt className="w-6 h-6" />
-            Launch New Investigation
-          </button>
-        </motion.div>
-      </div>
+      <section aria-label="Integration readiness" className="grid gap-3 sm:grid-cols-2">
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">
+          <div><p className="text-xs text-slate-400">Model provider</p><p className="mt-1 text-sm font-medium text-white">{integrationStatus.loading ? "Checking…" : integrationStatus.llmConfigured === null ? "Status unavailable" : integrationStatus.llmConfigured ? "Configured on backend" : "Configuration missing"}</p></div>
+          <span className={`h-2 w-2 rounded-full ${integrationStatus.llmConfigured ? "bg-emerald-300" : "bg-amber-300"}`} aria-hidden="true" />
+        </div>
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">
+          <div><p className="text-xs text-slate-400">GitHub App</p><p className="mt-1 text-sm font-medium text-white">{integrationStatus.loading ? "Checking…" : integrationStatus.githubLinked === null ? "Status unavailable" : integrationStatus.githubLinked ? "Installation linked" : "Not connected · optional"}</p></div>
+          <Link to="/settings" className="text-xs font-medium text-blue-200 hover:text-white">Settings</Link>
+        </div>
+      </section>
 
-      {/* Right Column (60%) */}
-      <div className="w-full lg:w-3/5 flex flex-col gap-4 h-[calc(100vh-8rem)]">
-        
-        {/* Search & Filter Bar */}
-        <motion.div variants={itemVariants} className="glass-card p-4 flex flex-col sm:flex-row items-center gap-3 shrink-0">
-          <div className="relative flex-1 w-full">
-            <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-            <input 
-              type="text" 
-              placeholder="Search incidents..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-black/30 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-white focus:outline-none focus:border-indigo-500"
-            />
+      <section aria-labelledby="recent-heading">
+        <div className="flex flex-col gap-4 border-b border-white/10 pb-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 id="recent-heading" className="text-lg font-semibold text-white">Recent investigations</h2>
+            <p className="mt-1 text-xs text-slate-400">A created pull request is not the same as a resolved incident.</p>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <HiOutlineFunnel className="text-slate-400 w-5 h-5 hidden sm:block" />
-            <select 
-              value={filterSeverity}
-              onChange={(e) => setFilterSeverity(e.target.value)}
-              className="bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-indigo-500 appearance-none flex-1 sm:flex-none"
-            >
-              <option value="all">All Severities</option>
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
-            <select 
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-indigo-500 appearance-none flex-1 sm:flex-none"
-            >
-              <option value="all">All Statuses</option>
-              <option value="investigating">Running</option>
-              <option value="resolved">Deployed</option>
-              <option value="failed">Rejected</option>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <label className="relative block">
+              <span className="sr-only">Search investigations</span>
+              <HiOutlineMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+              <input type="search" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search investigations" className="min-h-10 w-full rounded-md border border-white/15 bg-[#0f151f] pl-9 pr-3 text-sm text-white placeholder:text-slate-500 focus:border-blue-200 focus:outline-none sm:w-56" />
+            </label>
+            <label className="relative block">
+              <span className="sr-only">Filter by status</span>
+              <HiOutlineFunnel className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+              <select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)} className="min-h-10 w-full appearance-none rounded-md border border-white/15 bg-[#0f151f] pl-9 pr-8 text-sm text-white focus:border-blue-200 focus:outline-none sm:w-48">
+                {statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <label className="sr-only" htmlFor="severity-filter">Filter by severity</label>
+            <select id="severity-filter" value={filterSeverity} onChange={(event) => setFilterSeverity(event.target.value)} className="min-h-10 rounded-md border border-white/15 bg-[#0f151f] px-3 text-sm text-white focus:border-blue-200 focus:outline-none">
+              <option value="all">All severities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option><option value="unknown">Unknown</option>
             </select>
           </div>
-        </motion.div>
+        </div>
 
-        {/* Incident Stream */}
-        <motion.div variants={itemVariants} className="flex-1 overflow-y-auto pr-2 pb-10 space-y-3 no-scrollbar">
-          {filteredIncidents.length > 0 ? (
-            filteredIncidents.map((inc, i) => (
-              <IncidentCard key={inc.incident_id || i} incident={inc} delay={i * 60} />
-            ))
-          ) : (
-            <div className="mt-8">
-              <EmptyState
-                title="No incidents found"
-                description={searchTerm || filterSeverity !== "all" || filterStatus !== "all" ? "Adjust your search or filters to see results." : "The command center is quiet. Launch an investigation to begin."}
-                icon={HiOutlineInboxStack}
-              />
-            </div>
-          )}
-        </motion.div>
-
-      </div>
-    </motion.div>
+        {loading ? (
+          <div className="flex items-center gap-3 py-10 text-sm text-slate-300" role="status"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-blue-200" /> Loading investigations…</div>
+        ) : error ? (
+          <div className="mt-5 rounded-lg border border-rose-300/20 bg-rose-300/5 p-5" role="alert"><p className="text-sm text-rose-100">{error}</p><button type="button" onClick={retry} className="mt-3 inline-flex items-center gap-2 rounded-md border border-white/15 px-3 py-2 text-sm text-white"><HiArrowPath className="h-4 w-4" /> Retry</button></div>
+        ) : incidents.length === 0 ? (
+          <div className="mt-5 rounded-lg border border-dashed border-white/15 px-5 py-10 text-center">
+            <p className="text-base font-medium text-white">No investigations yet</p>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">Start with a symptom and whatever logs or code context you have. Connecting GitHub is optional for manual-evidence investigations.</p>
+            <Link to="/new-incident" className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-md bg-blue-300 px-4 font-semibold text-slate-950"><HiOutlinePlus className="h-4 w-4" /> Investigate an incident</Link>
+          </div>
+        ) : filteredIncidents.length === 0 ? (
+          <div className="py-10 text-center"><p className="text-sm text-slate-300">No investigations match these filters.</p><button type="button" onClick={() => { setSearchTerm(""); setFilterSeverity("all"); setFilterStatus("all"); }} className="mt-2 text-sm text-blue-200 underline underline-offset-2">Clear filters</button></div>
+        ) : (
+          <ul className="divide-y divide-white/10" aria-label="Recent investigations">
+            {filteredIncidents.map((incident) => <li key={incident.incident_id}><IncidentCard incident={incident} /></li>)}
+          </ul>
+        )}
+      </section>
+    </main>
   );
 }

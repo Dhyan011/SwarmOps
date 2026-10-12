@@ -2,24 +2,10 @@ import Sidebar from "./Sidebar";
 
 export default function Layout({ children }) {
   return (
-    <div className="relative min-h-screen bg-slate-950 text-white flex overflow-hidden">
-      {/* Fixed Starry Night Background - Unaltered */}
-      <div className="fixed inset-0 z-0">
-        <img 
-          src="/starry-night.png" 
-          alt="Cosmic Background" 
-          className="w-full h-full object-cover"
-        />
-      </div>
-
-      <div className="cyber-grid opacity-30 fixed inset-0 z-0 pointer-events-none" />
-      
+    <div className="min-h-screen bg-[#090d14] text-slate-100">
       <Sidebar />
-      
-      <main className="flex-1 ml-[72px] relative z-10 overflow-y-auto h-screen">
-        <div className="max-w-[1440px] mx-auto px-6 lg:px-10 py-8">
-          {children}
-        </div>
+      <main className="min-w-0 px-4 py-6 sm:px-6 md:pl-60 md:py-8" id="main-content">
+        <div className="mx-auto w-full max-w-7xl">{children}</div>
       </main>
     </div>
   );
