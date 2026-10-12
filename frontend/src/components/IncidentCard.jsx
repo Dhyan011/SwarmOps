@@ -2,98 +2,64 @@ import { useNavigate } from "react-router-dom";
 import { HiOutlineChevronRight } from "react-icons/hi2";
 import StatusBadge from "./StatusBadge";
 
-const severityMap = {
-  low: "low",
-  medium: "medium",
-  high: "high",
-  critical: "critical",
-};
-
+const severityMap = { low: "low", medium: "medium", high: "high", critical: "critical" };
 const severityBorder = {
-  low: "severity-border-low",
-  medium: "severity-border-medium",
-  high: "severity-border-high",
-  critical: "severity-border-critical",
+  low: "border-l-emerald-300/50",
+  medium: "border-l-blue-300/50",
+  high: "border-l-amber-300/50",
+  critical: "border-l-rose-300/60",
 };
-
 const statusMap = {
-  investigating: "running",
-  resolved: "deployed",
-  failed: "rejected",
-  pending: "neutral",
+  investigating: ["running", "Investigating"],
+  awaiting_review: ["review", "Awaiting review"],
+  needs_review: ["review", "Needs review"],
+  validation_failed: ["failure", "Validation failed"],
+  pr_created: ["pr", "PR created"],
+  rejected: ["failure", "Rejected"],
+  failed: ["failure", "Failed"],
 };
 
-function timeAgo(dateStr) {
-  if (!dateStr) return "";
-  const now = new Date();
-  const date = new Date(dateStr);
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHrs = Math.floor(diffMins / 60);
-  if (diffHrs < 24) return `${diffHrs}h ago`;
-  const diffDays = Math.floor(diffHrs / 24);
-  return `${diffDays}d ago`;
+function timeAgo(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
-export default function IncidentCard({ incident, delay = 0 }) {
+export default function IncidentCard({ incident }) {
   const navigate = useNavigate();
   const {
-    incident_id,
-    description = "No description",
-    service = "Unknown",
-    severity = "medium",
+    incident_id: incidentId,
+    description = "No description provided",
+    service = "Unknown service",
+    severity = "unknown",
     status = "investigating",
-    created_at,
+    created_at: createdAt,
   } = incident || {};
+  const [statusVariant, statusLabel] = statusMap[status] || ["neutral", status || "Unknown status"];
 
   return (
-    <div
-      onClick={() => navigate(`/incident/${incident_id}`)}
-      className={`
-        glass-card group cursor-pointer
-        px-5 py-4 flex items-center gap-4
-        animate-fade-in card-3d
-        ${severityBorder[severity] || "border-l-transparent"}
-      `}
-      style={{ animationDelay: `${delay}ms` }}
-    >
-      {/* Severity indicator */}
-      <div className="shrink-0">
-        <StatusBadge variant={severityMap[severity] || "neutral"}>
-          {severity}
-        </StatusBadge>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-base font-mono text-cyan-400">
-            #{incident_id?.slice(0, 8)}
-          </span>
-          <span className="text-slate-400">·</span>
-          <span className="text-base text-text-main font-medium">{service}</span>
+    <button type="button" onClick={() => navigate(`/incident/${encodeURIComponent(incidentId)}`)} className={`group flex w-full items-start gap-4 border-l-2 px-3 py-4 text-left hover:bg-white/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-200 ${severityBorder[severity] || "border-l-transparent"}`}>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-xs text-slate-400">{incidentId ? `#${incidentId.slice(0, 8)}` : "Incident"}</span>
+          <StatusBadge variant={severityMap[severity] || "neutral"}>{severity === "unknown" ? "Severity unknown" : severity}</StatusBadge>
         </div>
-        <p className="text-base text-slate-300 truncate leading-relaxed">
-          {description}
-        </p>
-      </div>
-
-      {/* Right side */}
-      <div className="flex items-center gap-3 shrink-0">
-        <div className="text-right hidden sm:block">
-          <StatusBadge variant={statusMap[status] || "neutral"}>
-            {status === "investigating" ? "RUNNING" : status === "resolved" ? "DEPLOYED" : status}
-          </StatusBadge>
-          {created_at && (
-            <p className="text-[11px] text-slate-400 mt-1.5">
-              {timeAgo(created_at)}
-            </p>
-          )}
+        <p className="mt-2 line-clamp-2 text-sm font-medium leading-6 text-white">{description}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
+          <span>{service}</span>
+          {createdAt && <time dateTime={createdAt}>{timeAgo(createdAt)}</time>}
         </div>
-        <HiOutlineChevronRight className="w-5 h-5 text-slate-400 group-hover:text-cyan-400 transition-colors duration-200" />
       </div>
-    </div>
+      <div className="flex shrink-0 items-center gap-2 pt-1">
+        <StatusBadge variant={statusVariant}>{statusLabel}</StatusBadge>
+        <HiOutlineChevronRight className="h-4 w-4 text-slate-500 group-hover:text-blue-200" aria-hidden="true" />
+      </div>
+    </button>
   );
 }

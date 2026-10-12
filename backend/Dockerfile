@@ -3,7 +3,13 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 # Copy ALL frontend source first — this ensures any src change busts the install cache
 COPY frontend/ .
-RUN npm install && npm run build
+ARG VITE_API_URL
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+RUN npm ci && npm run build
 
 # Stage 2: Build Python Backend
 FROM python:3.11-slim

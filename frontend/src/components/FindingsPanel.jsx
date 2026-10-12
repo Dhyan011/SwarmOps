@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   HiOutlineChevronDown,
   HiOutlineCheckCircle,
@@ -21,17 +21,10 @@ function formatAgentName(name) {
     .join(" ");
 }
 
-function FindingSection({ finding, isLatest }) {
+function FindingSection({ finding }) {
   const [expanded, setExpanded] = useState(false);
   const config = statusConfig[finding.status] || statusConfig.idle;
   const StatusIcon = config.icon;
-
-  // Auto-expand the latest completed agent
-  useEffect(() => {
-    if (isLatest && finding.status === "completed") {
-      setExpanded(true);
-    }
-  }, [isLatest, finding.status]);
 
   const renderFindings = (findingsText) => {
     if (!findingsText) return null;
@@ -62,7 +55,7 @@ function FindingSection({ finding, isLatest }) {
           </div>
         );
       }
-    } catch (e) {
+    } catch {
       // Fallback if it's just a regular string
     }
     
@@ -158,12 +151,6 @@ function FindingSection({ finding, isLatest }) {
 }
 
 export default function FindingsPanel({ findings = [] }) {
-  // Find the index of the latest completed agent
-  const latestCompletedIdx = [...findings]
-    .map((f, i) => ({ ...f, idx: i }))
-    .filter((f) => f.status === "completed")
-    .pop()?.idx;
-
   return (
     <div className="space-y-2">
       <h3 className="text-base font-semibold uppercase tracking-wider text-slate-200 font-medium mb-3 px-1">
@@ -179,7 +166,6 @@ export default function FindingsPanel({ findings = [] }) {
             <FindingSection
               key={finding.agent || i}
               finding={finding}
-              isLatest={i === latestCompletedIdx}
             />
           ))}
         </div>

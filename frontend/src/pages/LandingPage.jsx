@@ -1,150 +1,199 @@
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import { HiOutlineRocketLaunch, HiOutlineCpuChip, HiOutlineCodeBracket } from "react-icons/hi2";
+import { Link } from "react-router-dom";
+import {
+  HiArrowRight,
+  HiOutlineCheckCircle,
+  HiOutlineChevronRight,
+  HiOutlineCodeBracket,
+  HiOutlineShieldCheck,
+  HiOutlineSparkles,
+} from "react-icons/hi2";
+
+const steps = [
+  {
+    number: "01",
+    title: "Bring the incident context",
+    body: "Start with symptoms. Add logs, a stack trace, code, or a public repository when you have them.",
+  },
+  {
+    number: "02",
+    title: "Review the evidence",
+    body: "See what was supplied, what could be retrieved, what the model concluded, and what is still unknown.",
+  },
+  {
+    number: "03",
+    title: "Decide what happens next",
+    body: "Inspect the proposed diff and validation state. An authorized reviewer can ask SwarmOps to open a GitHub pull request.",
+  },
+];
+
+const sampleEvidence = [
+  { label: "User supplied", detail: "Checkout returns HTTP 500 after retry" },
+  { label: "User supplied", detail: "Traceback points to payment retry handler" },
+  { label: "Retrieved", detail: "Public repository context, when a repo URL is provided" },
+];
 
 export default function LandingPage() {
-  const navigate = useNavigate();
-
-  // Mouse tracking for parallax background
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-
-  const mouseXSpring = useSpring(x, { stiffness: 50, damping: 20 });
-  const mouseYSpring = useSpring(y, { stiffness: 50, damping: 20 });
-
-  // Move the background slightly based on mouse
-  const translateX = useTransform(mouseXSpring, [-0.5, 0.5], ["-2%", "2%"]);
-  const translateY = useTransform(mouseYSpring, [-0.5, 0.5], ["-2%", "2%"]);
-
-  const handleMouseMove = (e) => {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const mouseX = e.clientX;
-    const mouseY = e.clientY;
-    const xPct = mouseX / width - 0.5;
-    const yPct = mouseY / height - 0.5;
-    x.set(xPct);
-    y.set(yPct);
-  };
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { 
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100 } }
-  };
-
   return (
-    <div 
-      onMouseMove={handleMouseMove}
-      className="relative min-h-screen flex flex-col items-center pt-32 pb-20 px-6 overflow-hidden bg-slate-950"
-    >
-      {/* 3D Tracking Parallax Background - Unaltered image */}
-      <motion.div 
-        className="absolute inset-[-5%] z-0"
-        style={{ x: translateX, y: translateY }}
-      >
-        <img 
-          src="/starry-night.png" 
-          alt="Starry Night Cosmic Background" 
-          className="w-full h-full object-cover"
-        />
-      </motion.div>
+    <main className="min-h-screen bg-[#090d14] text-slate-100">
+      <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
+        <Link to="/" className="inline-flex items-center gap-3 rounded-md" aria-label="SwarmOps home">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-300/20 bg-blue-300/10 text-blue-200" aria-hidden="true">
+            <HiOutlineCodeBracket className="h-5 w-5" />
+          </span>
+          <span className="text-lg font-semibold tracking-tight">SwarmOps</span>
+        </Link>
+        <nav aria-label="Main navigation" className="flex items-center gap-5 text-sm">
+          <a href="#how-it-works" className="hidden text-slate-300 hover:text-white sm:inline">How it works</a>
+          <a href="#open-source" className="hidden text-slate-300 hover:text-white md:inline">Open source</a>
+          <a href="#security" className="hidden text-slate-300 hover:text-white sm:inline">Security</a>
+          <a href="https://github.com/Dhyan011/SwarmOps" target="_blank" rel="noreferrer" className="hidden text-slate-300 hover:text-white md:inline">GitHub</a>
+          <Link to="/login" className="rounded-md border border-white/15 px-3.5 py-2 text-slate-100 hover:border-white/30 hover:bg-white/5">Sign in</Link>
+        </nav>
+      </header>
 
-      {/* Cyber Grid over the background */}
-      <div className="cyber-grid opacity-30 z-0" />
-      
-      {/* Hero Section (Center Aligned) */}
-      <motion.div 
-        className="max-w-4xl w-full flex flex-col items-center text-center z-10 mt-12"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.05] border border-white/[0.1] mb-8 backdrop-blur-md shadow-sm">
-          <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse-dot" />
-          <span className="text-base font-bold text-white uppercase tracking-wider">SwarmOps Core v0.2.0 is Live</span>
-        </motion.div>
-
-        <motion.h1 variants={itemVariants} className="text-6xl md:text-8xl font-black tracking-tight mb-6 leading-tight drop-shadow-xl text-white">
-          Autonomous <br />
-          <span className="bg-gradient-to-r from-blue-700 to-amber-600 bg-clip-text text-transparent">Incident Response.</span>
-        </motion.h1>
-
-        <motion.p variants={itemVariants} className="text-xl md:text-2xl text-white max-w-3xl mb-12 leading-relaxed drop-shadow-md font-semibold bg-white/20 px-6 py-3 rounded-2xl backdrop-blur-sm border border-white/30">
-          Unleash an 8-agent AI swarm to instantly triage, investigate, trace, and patch production bugs in your codebase before your users even notice.
-        </motion.p>
-
-        <motion.div variants={itemVariants} className="flex items-center gap-4 flex-wrap justify-center">
-          <button 
-            onClick={() => navigate("/dashboard")}
-            className="group relative inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-amber-500 text-white font-bold font-bold text-lg overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(37,99,235,0.4)]"
-          >
-            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
-            <HiOutlineRocketLaunch className="w-6 h-6 relative z-10" />
-            <span className="relative z-10">Enter Command Center</span>
-          </button>
-          <a 
-            href="#how-it-works"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white font-bold text-lg hover:bg-white/[0.1] hover:border-white/[0.2] backdrop-blur-md transition-all hover:scale-105 active:scale-95 shadow-sm"
-          >
-            Read the Manual
-          </a>
-        </motion.div>
-      </motion.div>
-
-      {/* Manual / How it Works Section */}
-      <motion.div 
-        id="how-it-works"
-        className="max-w-5xl w-full mt-40 z-10"
-        initial={{ opacity: 0, y: 50 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.6 }}
-      >
-        <div className="text-center mb-16 bg-white/[0.02] p-8 rounded-3xl backdrop-blur-md border border-white/[0.08] inline-block mx-auto">
-          <h2 className="text-4xl md:text-5xl font-black text-white mb-4 drop-shadow-sm">How The Swarm Works</h2>
-          <p className="text-lg md:text-xl text-slate-200 font-semibold max-w-2xl mx-auto">A multi-phase, highly concurrent architecture that acts exactly like a Senior SRE team.</p>
+      <section className="mx-auto grid w-full max-w-7xl gap-12 px-5 pb-20 pt-12 sm:px-8 sm:pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:pb-28">
+        <div className="max-w-2xl">
+          <p className="mb-5 flex items-center gap-2 text-sm font-medium text-blue-200">
+            <span className="h-1.5 w-1.5 rounded-full bg-blue-300" /> AI-assisted incident investigation
+          </p>
+          <h1 className="text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-white sm:text-6xl">
+            From production incident to a fix you can review.
+          </h1>
+          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">
+            Investigate failures, connect available evidence to likely causes, and prepare a GitHub change for human review—all in one workspace, with you in control.
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Link to="/new-incident" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-blue-300 px-5 font-semibold text-slate-950 hover:bg-blue-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-200">
+              Start an investigation <HiArrowRight className="h-4 w-4" />
+            </Link>
+            <a href="#sample-investigation" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-white/15 px-5 font-semibold text-white hover:bg-white/5">
+              Explore a sample <HiOutlineChevronRight className="h-4 w-4" />
+            </a>
+          </div>
+          <p className="mt-4 max-w-lg text-xs leading-5 text-slate-400">
+            SwarmOps does not deploy or merge changes. A pull request is a proposal, not proof that an incident is resolved.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="glass-card p-8 group backdrop-blur-xl bg-white/[0.05] border-white/[0.08] shadow-xl hover:shadow-2xl transition-all">
-            <div className="w-14 h-14 rounded-xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center mb-6 group-hover:bg-blue-600/20 transition-colors">
-              <HiOutlineCpuChip className="w-7 h-7 text-blue-700" />
+        <div id="sample-investigation" className="relative scroll-mt-8 rounded-xl border border-white/10 bg-[#0f151f] p-5 shadow-2xl shadow-black/20 sm:p-6">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-400">Illustrative sample · not live data</p>
+              <h2 className="mt-2 text-base font-semibold text-white">Checkout retry failures</h2>
             </div>
-            <h3 className="text-xl font-black text-white mb-3">1. Parallel Investigation</h3>
-            <p className="text-base text-slate-200 font-medium leading-relaxed">
-              Upon incident creation, the Orchestrator spins up four specialized agents (Logs, Metrics, Trace, Security) to concurrently fetch context and analyze the target repository or environment.
-            </p>
+            <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-xs font-medium text-amber-100">Needs review</span>
           </div>
 
-          <div className="glass-card p-8 group backdrop-blur-xl bg-white/[0.05] border-white/[0.08] shadow-xl hover:shadow-2xl transition-all">
-            <div className="w-14 h-14 rounded-xl bg-amber-600/10 border border-amber-600/20 flex items-center justify-center mb-6 group-hover:bg-amber-600/20 transition-colors">
-              <HiOutlineCodeBracket className="w-7 h-7 text-amber-700" />
+          <div className="grid gap-5 sm:grid-cols-[0.8fr_1.2fr]">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Evidence available</h3>
+              <ul className="mt-3 space-y-3">
+                {sampleEvidence.map((item) => (
+                  <li key={item.detail} className="border-l-2 border-blue-300/50 pl-3">
+                    <span className="block text-[11px] font-medium text-blue-200">{item.label}</span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-300">{item.detail}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <h3 className="text-xl font-black text-white mb-3">2. Root Cause Synthesis</h3>
-            <p className="text-base text-slate-200 font-medium leading-relaxed">
-              The Root Cause Agent synthesizes the concurrent findings into a singular, highly confident hypothesis, pinpointing the exact lines of code responsible for the crash.
-            </p>
+            <div className="rounded-lg border border-white/10 bg-[#0a0f16] p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+                <HiOutlineSparkles className="h-4 w-4 text-blue-200" /> Finding · AI-generated hypothesis
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-300">
+                The retry handler may reuse a payment response after a failed attempt. Confirm this against the repository and a reproducible test before treating it as the cause.
+              </p>
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+                  <HiOutlineCodeBracket className="h-4 w-4 text-slate-400" /> Proposed change
+                </div>
+                <pre className="mt-3 overflow-x-auto rounded-md bg-black/30 p-3 text-xs leading-5 text-slate-300"><code><span className="text-rose-300">- cached_response = previous_attempt</span>{"\n"}<span className="text-emerald-300">+ cached_response = None</span></code></pre>
+                <p className="mt-3 text-xs text-amber-100">Sample diff only. No tests were run and no repository was changed.</p>
+              </div>
+            </div>
           </div>
-
-          <div className="glass-card p-8 group backdrop-blur-xl bg-white/[0.05] border-white/[0.08] shadow-xl hover:shadow-2xl transition-all">
-            <div className="w-14 h-14 rounded-xl bg-emerald-600/10 border border-emerald-600/20 flex items-center justify-center mb-6 group-hover:bg-emerald-600/20 transition-colors">
-              <HiOutlineRocketLaunch className="w-7 h-7 text-emerald-700" />
-            </div>
-            <h3 className="text-xl font-black text-white mb-3">3. Automated Patching</h3>
-            <p className="text-base text-slate-200 font-medium leading-relaxed">
-              The Fix Generator writes a `git diff` patch. Once validated by the Validation Agent, you simply click "Approve" and SwarmOps opens a GitHub Pull Request on your behalf automatically.
-            </p>
+          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4 text-xs text-slate-400">
+            <HiOutlineCheckCircle className="h-4 w-4 text-blue-200" />
+            The sample demonstrates the review flow; its evidence and diagnosis are fictional.
           </div>
         </div>
-      </motion.div>
-    </div>
+      </section>
+
+      <section id="how-it-works" className="scroll-mt-8 border-y border-white/10 bg-[#0c1119]">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <div className="max-w-2xl">
+            <p className="text-sm font-medium text-blue-200">A workflow, not a black box</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Keep every conclusion connected to the next decision.</h2>
+          </div>
+          <div className="mt-10 grid gap-8 md:grid-cols-3">
+            {steps.map((step) => (
+              <article key={step.number} className="border-t border-white/15 pt-5">
+                <p className="font-mono text-xs text-blue-200">{step.number}</p>
+                <h3 className="mt-4 text-lg font-semibold text-white">{step.title}</h3>
+                <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300">{step.body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="open-source" className="scroll-mt-8 border-y border-white/10 bg-[#0c1119]">
+        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div>
+            <p className="text-sm font-medium text-blue-200">Open-source contribution mode</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">A commit-pinned proposal. Your call to publish.</h2>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">Scan a public GitHub repository for one concrete contribution. Review the source commit, proposed issue, PR description, and complete diff before a security reviewer confirms any GitHub write.</p>
+            <Link to="/contribute" className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-300 px-5 font-semibold text-slate-950 hover:bg-blue-200">Explore contribution mode <HiArrowRight className="h-4 w-4" /></Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <article className="rounded-lg border border-white/10 bg-[#0f151f] p-4"><h3 className="text-sm font-semibold text-white">Read-only scan</h3><p className="mt-2 text-xs leading-5 text-slate-400">Public repository only. Source is bounded, filtered, and pinned to a commit; common secret patterns are redacted before AI analysis.</p></article>
+            <article className="rounded-lg border border-white/10 bg-[#0f151f] p-4"><h3 className="text-sm font-semibold text-white">Exact diff preview</h3><p className="mt-2 text-xs leading-5 text-slate-400">The proposed patch must apply to the scanned source and pass deterministic preflight checks. No code is executed.</p></article>
+            <article className="rounded-lg border border-white/10 bg-[#0f151f] p-4"><h3 className="text-sm font-semibold text-white">Separate GitHub permission</h3><p className="mt-2 text-xs leading-5 text-slate-400">A linked GitHub App needs repository access and issue/PR permissions. Public visibility alone does not authorize writes.</p></article>
+            <article className="rounded-lg border border-white/10 bg-[#0f151f] p-4"><h3 className="text-sm font-semibold text-white">No silent success</h3><p className="mt-2 text-xs leading-5 text-slate-400">SwarmOps reports the verified issue/PR links or a partial outcome. It does not merge, run tests, or claim that a contribution is accepted.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section id="security" className="scroll-mt-8 mx-auto grid max-w-7xl gap-10 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[0.8fr_1.2fr]">
+        <div>
+          <p className="text-sm font-medium text-blue-200">Trust and permissions</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">A human stays in control.</h2>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <article className="border-l border-blue-300/50 pl-4">
+            <h3 className="flex items-center gap-2 font-semibold text-white"><HiOutlineShieldCheck className="h-4 w-4 text-blue-200" /> Separate access</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-300">Signing in to SwarmOps establishes your identity. GitHub App installation separately grants repository access; the app checks ownership and reviewer permissions on the server.</p>
+          </article>
+          <article className="border-l border-amber-300/50 pl-4">
+            <h3 className="font-semibold text-white">Review before writing</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-300">A pull request is created only for an eligible proposal and authorized reviewer. SwarmOps does not merge or deploy it.</p>
+          </article>
+          <article className="border-l border-white/20 pl-4 sm:col-span-2">
+            <h3 className="font-semibold text-white">Evidence is not all the same</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-300">User-supplied logs, retrieved public repository context, AI-generated findings, and independently verified provider outcomes must remain distinguishable. AI-generated tests are not executed by the current system.</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="border-t border-white/10 bg-[#0c1119]">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-12 sm:px-8 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-white">Start with the evidence you have.</h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Observability integrations are optional. Manual incident context is a supported starting point—not a substitute for live telemetry.</p>
+          </div>
+          <Link to="/new-incident" className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-300 px-5 font-semibold text-slate-950 hover:bg-blue-200">
+            Start an investigation <HiArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </section>
+
+      <footer className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-6 text-xs text-slate-500 sm:px-8 sm:flex-row sm:items-center sm:justify-between">
+        <span>SwarmOps · evidence-first incident investigation</span>
+        <div className="flex items-center gap-4">
+          <a href="https://github.com/Dhyan011/SwarmOps" target="_blank" rel="noreferrer" className="hover:text-slate-300">Source code</a>
+          <Link to="/login" className="hover:text-slate-300">Sign in</Link>
+        </div>
+      </footer>
+    </main>
   );
 }

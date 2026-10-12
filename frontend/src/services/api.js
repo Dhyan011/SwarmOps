@@ -1,6 +1,7 @@
 import axios from "axios";
+import { getSupabaseAccessToken } from "./supabase";
 
-// If VITE_API_URL is empty, it uses the current origin automatically
+// If VITE_API_URL is empty, use the current origin.
 const API_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
 const api = axios.create({
@@ -8,27 +9,28 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Interceptor to attach the OpenRouter OAuth API Key
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("openrouter_api_key");
-  if (token) {
-    config.headers["X-API-Key"] = token;
-  }
+// Supabase identity authenticates every request; BYOK keys are sent only to AI setup endpoints.
+api.interceptors.request.use(async (config) => {
+  const accessToken = await getSupabaseAccessToken();
+  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
   return config;
 });
 
-export const exchangeOAuthCode = async (code) => {
-  // Exchange code for API key directly with OpenRouter
-  const response = await axios.post("https://openrouter.ai/api/v1/auth/keys", {
-    code: code
-  });
-  return response.data; // Should contain the generated key
-};
-
 export const createIncident = (data) => api.post("/api/v1/incident", data);
-export const getIncidents = () => api.get("/api/v1/incidents");
+export const getIncidents = (params) => api.get("/api/v1/incidents", { params });
 export const getIncident = (id) => api.get(`/api/v1/incidents/${id}`);
 export const handleIncidentAction = (id, action) => api.post(`/api/v1/incidents/${id}/action`, { action });
 export const getHealth = () => api.get("/health");
+export const getAIConfig = () => api.get("/api/v1/ai/config");
+export const getAIProviders = () => api.get("/api/v1/ai/providers");
+export const getAIModels = (provider, api_key) => api.post("/api/v1/ai/models", { provider, api_key });
+export const testAIProvider = (provider, api_key, model) => api.post("/api/v1/ai/test", { provider, api_key, model });
+export const saveAIConfig = (provider, api_key, model) => api.put("/api/v1/ai/config", { provider, api_key, model });
+export const deleteAIConfig = () => api.delete("/api/v1/ai/config");
+export const getGitHubInstallations = () => api.get("/api/v1/github/installations");
+export const startGitHubInstallation = () => api.post("/api/v1/github/install-url");
+export const scanPublicRepository = (repositoryUrl) => api.post("/api/v1/contributions/scan", { repository_url: repositoryUrl });
+export const getContributionScan = (id) => api.get(`/api/v1/contributions/${id}`);
+export const publishContribution = (id, payload) => api.post(`/api/v1/contributions/${id}/publish`, payload);
 
 export default api;

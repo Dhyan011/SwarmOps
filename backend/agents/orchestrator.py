@@ -14,7 +14,7 @@ import time
 from datetime import datetime, timezone
 from fastapi import HTTPException
 
-from models.schemas import IncidentCreate, IncidentReport, AgentFinding
+from models.schemas import IncidentCreate, IncidentReport, AgentFinding, ValidationOutput
 
 from agents.triage import TriageAgent
 from agents.log_analyzer import LogAnalyzerAgent
@@ -29,6 +29,7 @@ from agents.pr_composer import PRComposerAgent
 from tools.github_fetcher import fetch_url_context
 from tools.similar_incident import find_similar_incident
 from memory_store import memory_store
+from security_policy import evaluate_patch
 
 
 class Orchestrator:
@@ -51,7 +52,7 @@ class Orchestrator:
 
     # ──────────────────────────────────────────────────────────────────
 
-    async def investigate(self, incident: IncidentCreate, api_key: str) -> IncidentReport:
+    async def investigate(self, incident: IncidentCreate, provider_config: dict[str, str], owner_id: str) -> IncidentReport:
         """Run the full 5-phase investigation and return a complete report."""
         incident_id = f"INC-{int(time.time() * 1000)}"
         created_at = datetime.now(timezone.utc).isoformat()
@@ -68,7 +69,7 @@ class Orchestrator:
                 "message": f"Fetching context from {incident.target_url}...",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "findings": "",
-            })
+            }, room=f"user:{owner_id}")
             url_context = await fetch_url_context(incident.target_url, getattr(incident, "analysis_mode", "standard"))
 
         phases: list[dict] = []
@@ -76,7 +77,8 @@ class Orchestrator:
 
         # Base context shared with every agent
         context: dict = {
-            "api_key": api_key,
+            "provider_config": provider_config,
+            "owner_id": owner_id,
             "incident_id": incident_id,
             "description": incident.description,
             "service": incident.service,
@@ -87,37 +89,36 @@ class Orchestrator:
         }
 
         # ── Pre-Phase: Similar Incident Check ────────────────────────
-        similar = await find_similar_incident(incident.description, incident.service)
+        similar = await find_similar_incident(incident.description, incident.service, owner_id)
         similar_incident_id = ""
         if similar:
             similar_incident_id = similar["incident_id"]
-            await self._emit_phase(incident_id, "pre_triage", "completed", f"Found similar past incident: {similar_incident_id}")
+            await self._emit_phase(incident_id, "pre_triage", "completed", f"Found similar past incident: {similar_incident_id}", owner_id)
             context["similar_incident"] = similar
             
         # ── Pre-Phase: Memory Injection ──────────────────────────────
         past_patterns = memory_store.get_past_patterns(incident.service)
         if past_patterns:
             context["past_patterns"] = past_patterns
-            await self._emit_phase(incident_id, "memory", "completed", f"Injected {len(past_patterns)} past patterns for {incident.service}")
+            await self._emit_phase(incident_id, "memory", "completed", f"Injected {len(past_patterns)} past patterns for {incident.service}", owner_id)
 
         # ── Phase 1: Triage ───────────────────────────────────────────
         context["phase"] = "triage"
-        await self._emit_phase(incident_id, "triage", "started", "Triage phase initiated")
+        await self._emit_phase(incident_id, "triage", "started", "Triage phase initiated", owner_id)
         triage_result = await self.triage_agent.run(context)
         phases.append({"phase": "triage", "status": "completed", "result": triage_result})
         agent_findings.append(self._to_finding(self.triage_agent, triage_result))
         context["triage_result"] = triage_result
         
         if "error" in triage_result:
-            error_msg = triage_result["error"]
-            await self._emit_phase(incident_id, "triage", "failed", f"Investigation aborted due to API error: {error_msg}")
-            raise HTTPException(status_code=429, detail=f"OpenRouter API limit or error encountered: {error_msg}")
+            await self._emit_phase(incident_id, "triage", "failed", "Investigation stopped because triage failed.", owner_id)
+            raise HTTPException(status_code=502, detail="Investigation stopped because triage could not be completed.")
 
-        await self._emit_phase(incident_id, "triage", "completed", "Triage phase completed")
+        await self._emit_phase(incident_id, "triage", "completed", "Triage phase completed", owner_id)
 
         # ── Phase 2: Parallel Investigation ───────────────────────────
         context["phase"] = "investigation"
-        await self._emit_phase(incident_id, "investigation", "started", "Investigation phase initiated — 4 agents running in parallel")
+        await self._emit_phase(incident_id, "investigation", "started", "Investigation phase initiated — 4 agents running in parallel", owner_id)
 
         log_res, metrics_res, trace_res, sec_res = await asyncio.gather(
             self.log_analyzer.run(context),
@@ -125,6 +126,9 @@ class Orchestrator:
             self.trace_agent.run(context),
             self.security_agent.run(context),
         )
+        if any("error" in result for result in (log_res, metrics_res, trace_res, sec_res)):
+            await self._emit_phase(incident_id, "investigation", "failed", "An analysis agent failed; no remediation will be prepared.", owner_id)
+            raise HTTPException(status_code=502, detail="Investigation analysis could not be completed.")
 
         investigation_results = {
             "log_analysis": log_res,
@@ -140,59 +144,92 @@ class Orchestrator:
             self._to_finding(self.security_agent, sec_res),
         ])
         context["investigation_findings"] = investigation_results
-        await self._emit_phase(incident_id, "investigation", "completed", "Investigation phase completed")
+        await self._emit_phase(incident_id, "investigation", "completed", "Investigation phase completed", owner_id)
 
         # ── Phase 3: Root Cause ───────────────────────────────────────
         context["phase"] = "root_cause"
-        await self._emit_phase(incident_id, "root_cause", "started", "Root cause analysis initiated")
+        await self._emit_phase(incident_id, "root_cause", "started", "Root cause analysis initiated", owner_id)
         root_cause_result = await self.root_cause_agent.run(context)
+        if "error" in root_cause_result:
+            raise HTTPException(status_code=502, detail="Root-cause analysis could not be completed.")
         phases.append({"phase": "root_cause", "status": "completed", "result": root_cause_result})
         agent_findings.append(self._to_finding(self.root_cause_agent, root_cause_result))
         context["root_cause"] = root_cause_result
-        await self._emit_phase(incident_id, "root_cause", "completed", "Root cause analysis completed")
+        await self._emit_phase(incident_id, "root_cause", "completed", "Root cause analysis completed", owner_id)
         
         confidence = self._parse_confidence(root_cause_result.get("confidence", 0))
         auto_escalated = False
         if confidence < 50:
             auto_escalated = True
-            await self._emit_phase(incident_id, "root_cause", "warning", f"Confidence is low ({confidence}%). Auto-escalating incident.")
+            await self._emit_phase(incident_id, "root_cause", "warning", f"Confidence is low ({confidence}%). Auto-escalating incident.", owner_id)
 
         # ── Phase 4: Fix Generation ───────────────────────────────────
         context["phase"] = "fix_generation"
-        await self._emit_phase(incident_id, "fix_generation", "started", "Fix generation initiated")
+        await self._emit_phase(incident_id, "fix_generation", "started", "Fix generation initiated", owner_id)
         fix_result = await self.fix_generator.run(context)
+        if "error" in fix_result:
+            raise HTTPException(status_code=502, detail="Fix generation could not be completed.")
         phases.append({"phase": "fix_generation", "status": "completed", "result": fix_result})
         agent_findings.append(self._to_finding(self.fix_generator, fix_result))
         context["proposed_fix"] = fix_result
-        await self._emit_phase(incident_id, "fix_generation", "completed", "Fix generation completed")
+        await self._emit_phase(incident_id, "fix_generation", "completed", "Fix generation completed", owner_id)
 
         # ── Phase 4.5: Test Generation ────────────────────────────────
         context["phase"] = "test_generation"
-        await self._emit_phase(incident_id, "test_generation", "started", "Test generation initiated")
+        await self._emit_phase(incident_id, "test_generation", "started", "Test generation initiated", owner_id)
         test_result = await self.test_generator.run(context)
         phases.append({"phase": "test_generation", "status": "completed", "result": test_result})
         agent_findings.append(self._to_finding(self.test_generator, test_result))
         context["tests"] = test_result
-        await self._emit_phase(incident_id, "test_generation", "completed", "Test generation completed")
+        await self._emit_phase(incident_id, "test_generation", "completed", "Test generation completed", owner_id)
 
         # ── Phase 5: Validation ───────────────────────────────────────
         context["phase"] = "validation"
-        await self._emit_phase(incident_id, "validation", "started", "Validation phase initiated")
+        await self._emit_phase(incident_id, "validation", "started", "Validation phase initiated", owner_id)
         validation_result = await self.validation_agent.run(context)
         phases.append({"phase": "validation", "status": "completed", "result": validation_result})
         agent_findings.append(self._to_finding(self.validation_agent, validation_result))
-        await self._emit_phase(incident_id, "validation", "completed", "Validation phase completed")
+        await self._emit_phase(incident_id, "validation", "completed", "Validation phase completed", owner_id)
 
-        validation_status = validation_result.get("validation_status", "approved")
+        validated_output = None
+        try:
+            validation_payload = {
+                key: value for key, value in validation_result.items()
+                if not key.startswith("_")
+            }
+            validated_output = ValidationOutput.model_validate(validation_payload)
+        except Exception:
+            pass
+        if validated_output is None:
+            validation_status = "needs_review"
+        elif validated_output.validation_status == "rejected":
+            validation_status = "rejected"
+        elif (
+            validated_output.validation_status == "approved"
+            and validated_output.safety_score >= 80
+            and validated_output.completeness
+            and not validated_output.potential_side_effects
+        ):
+            validation_status = "approved"
+        else:
+            validation_status = "needs_review"
+        if "error" in test_result:
+            validation_status = "needs_review"
+        policy_result = evaluate_patch(fix_result.get("code_patch", ""))
+        remediation_eligible = (
+            validation_status == "approved"
+            and policy_result.state == "passed"
+            and "error" not in test_result
+        )
 
-        if validation_status != "rejected":
+        if remediation_eligible:
             # ── Phase 6: PR Composer ──────────────────────────────────────
             context["phase"] = "pr_composer"
-            await self._emit_phase(incident_id, "pr_composer", "started", "PR composing initiated")
+            await self._emit_phase(incident_id, "pr_composer", "started", "PR composing initiated", owner_id)
             pr_result = await self.pr_composer.run(context)
             phases.append({"phase": "pr_composer", "status": "completed", "result": pr_result})
             agent_findings.append(self._to_finding(self.pr_composer, pr_result))
-            await self._emit_phase(incident_id, "pr_composer", "completed", "PR composing completed")
+            await self._emit_phase(incident_id, "pr_composer", "completed", "PR composing completed", owner_id)
         else:
             pr_result = {}
 
@@ -201,10 +238,15 @@ class Orchestrator:
 
         report = IncidentReport(
             incident_id=incident_id,
+            owner_id=owner_id,
             description=incident.description,
             service=incident.service,
             severity=incident.severity,
-            status="validation_failed" if validation_status == "rejected" else "resolved",
+            status=(
+                "validation_failed" if validation_status == "rejected"
+                else "awaiting_review" if remediation_eligible
+                else "needs_review"
+            ),
             created_at=created_at,
             phases=phases,
             agent_findings=agent_findings,
@@ -212,8 +254,23 @@ class Orchestrator:
             confidence=confidence,
             recommended_fix=fix_result.get("fix_description", "No fix generated"),
             code_patch=fix_result.get("code_patch", ""),
-            validation_result=json.dumps(validation_result) if validation_status == "rejected" else validation_result.get("validation_status", "unknown"),
+            user_supplied_evidence=incident.code_snippet,
+            validation_result=(
+                validated_output.model_dump_json()
+                if validated_output is not None
+                else json.dumps({"validation_status": "needs_review", "reason": "missing_or_invalid_validation_output"})
+            ),
+            validation_state=(
+                "validation_failed" if validation_status == "rejected"
+                else "validation_passed" if validation_status == "approved"
+                else "needs_manual_review"
+            ),
+            policy_state=policy_result.state,
+            policy_findings=list(policy_result.findings),
+            tests_executed=False,
             resolution_time_ms=resolution_ms,
+            target_url=incident.target_url,
+            target_branch=incident.target_branch,
             auto_escalated=auto_escalated,
             similar_incident_id=similar_incident_id,
             pr_title=pr_result.get("pr_title", ""),
@@ -223,15 +280,15 @@ class Orchestrator:
         from db import db
         await db.set(incident_id, report)
 
-        if validation_status == "rejected":
+        if report.status != "awaiting_review":
             await self.sio.emit("investigation_complete", {
                 "incident_id": incident_id,
-                "status": "validation_failed",
-                "message": "Validation agent rejected the fix. Review findings before proceeding."
-            })
+                "status": report.status,
+                "message": "Automated review did not clear all policy gates. Manual review is required before remediation."
+            }, room=f"user:{owner_id}")
             return report
 
-        await self.sio.emit("investigation_complete", report.model_dump())
+        await self.sio.emit("investigation_complete", report.model_dump(), room=f"user:{owner_id}")
         return report
 
     # ── Helpers ────────────────────────────────────────────────────────
@@ -248,7 +305,7 @@ class Orchestrator:
         except (ValueError, TypeError):
             return 0
 
-    async def _emit_phase(self, incident_id: str, phase: str, status: str, message: str):
+    async def _emit_phase(self, incident_id: str, phase: str, status: str, message: str, owner_id: str):
         await self.sio.emit("agent_event", {
             "incident_id": incident_id,
             "agent": "Orchestrator",
@@ -257,7 +314,7 @@ class Orchestrator:
             "message": message,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "findings": "",
-        })
+        }, room=f"user:{owner_id}")
 
     @staticmethod
     def _to_finding(agent, result: dict) -> AgentFinding:

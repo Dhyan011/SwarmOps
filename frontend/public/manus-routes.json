@@ -1,0 +1,15 @@
+{
+  "routes": [
+    { "path": "/", "title": "SwarmOps home" },
+    { "path": "/login", "title": "Sign in" },
+    { "path": "/auth/callback", "title": "Authentication callback" },
+    { "path": "/onboarding", "title": "Required AI provider setup" },
+    { "path": "/dashboard", "title": "Investigations" },
+    { "path": "/new-incident", "title": "New investigation" },
+    { "path": "/incident/:id", "title": "Investigation detail" },
+    { "path": "/report/:id", "title": "Investigation report" },
+    { "path": "/contribute", "title": "Open-source contribution scanner" },
+    { "path": "/contribution/:id", "title": "Contribution review" },
+    { "path": "/settings", "title": "Settings" }
+  ]
+}

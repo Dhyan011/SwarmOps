@@ -4,7 +4,14 @@ openai
 python-dotenv
 python-socketio
 httpx
+aiohttp>=3.10,<4
 python-multipart
 slowapi
+PyJWT[crypto]>=2.8,<3
+cryptography>=42,<51
+SQLAlchemy[asyncio]>=2.0,<3
+asyncpg>=0.29,<1
+alembic>=1.13,<2
+aiosqlite>=0.20,<1
 azure-identity
 azure-monitor-query
