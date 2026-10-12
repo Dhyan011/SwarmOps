@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getSupabaseAccessToken } from "./supabase";
 
 // If VITE_API_URL is empty, it uses the current origin automatically
 const API_URL = import.meta.env.VITE_API_URL || window.location.origin;
@@ -9,8 +10,8 @@ const api = axios.create({
 });
 
 // Application identity and model-provider credentials are separate tokens.
-api.interceptors.request.use((config) => {
-  const accessToken = localStorage.getItem("supabase_access_token");
+api.interceptors.request.use(async (config) => {
+  const accessToken = await getSupabaseAccessToken();
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
   const providerKey = localStorage.getItem("openrouter_api_key");
   if (providerKey) config.headers["X-API-Key"] = providerKey;

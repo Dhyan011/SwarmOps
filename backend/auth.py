@@ -23,6 +23,17 @@ class Principal:
     user_id: str
     claims: dict[str, Any]
 
+    def has_any_role(self, allowed: set[str]) -> bool:
+        metadata = self.claims.get("app_metadata")
+        if not isinstance(metadata, dict):
+            return False
+        roles = metadata.get("roles", [])
+        if isinstance(roles, str):
+            roles = [roles]
+        if not isinstance(roles, list):
+            return False
+        return bool(set(role for role in roles if isinstance(role, str)) & allowed)
+
 
 def _issuer() -> str:
     if not SUPABASE_URL:

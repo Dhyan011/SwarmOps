@@ -1,12 +1,62 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import api from "../services/api";
+import { supabase } from "../services/supabase";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [provider, setProvider] = useState(null);
   const [keys, setKeys] = useState({ gemini: "", groq: "", ollama: "http://localhost:11434" });
   const [githubConnected, setGithubConnected] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+  const [authError, setAuthError] = useState("");
+  const [githubBusy, setGithubBusy] = useState(false);
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthError("Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to sign in.");
+      return undefined;
+    }
+    supabase.auth.getSession().then(({ data }) => setAuthUser(data.session?.user || null));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user || null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!authUser) {
+      setGithubConnected(false);
+      return;
+    }
+    api.get("/api/v1/github/installations")
+      .then(({ data }) => setGithubConnected(Array.isArray(data) && data.length > 0))
+      .catch(() => setGithubConnected(false));
+  }, [authUser]);
+
+  const handleSignIn = async () => {
+    setAuthError("");
+    if (!supabase) return setAuthError("Supabase authentication is not configured.");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: { redirectTo: `${window.location.origin}/login` },
+    });
+    if (error) setAuthError(error.message);
+  };
+
+  const handleConnectGitHub = async () => {
+    if (!authUser) return setAuthError("Sign in before linking a GitHub App installation.");
+    setGithubBusy(true);
+    setAuthError("");
+    try {
+      const { data } = await api.post("/api/v1/github/install-url");
+      window.location.assign(data.url);
+    } catch (error) {
+      setAuthError(error.response?.data?.detail || "Could not start GitHub App installation.");
+      setGithubBusy(false);
+    }
+  };
 
   const handleProviderSelect = (p) => setProvider(p);
   const handleKeyChange = (p, val) => setKeys({ ...keys, [p]: val });
@@ -19,7 +69,7 @@ export default function LoginPage() {
   );
 
   const handleContinue = () => {
-    if (!canContinue) return;
+    if (!canContinue || !authUser || !githubConnected) return;
     // Mock save logic
     if (provider === "gemini") localStorage.setItem("gemini_key", keys.gemini);
     if (provider === "groq") localStorage.setItem("groq_key", keys.groq);
@@ -42,6 +92,17 @@ export default function LoginPage() {
           </div>
           <h1 className="text-4xl font-black text-text-main tracking-tight mb-2">Configure SwarmOps</h1>
           <p className="text-slate-400">Step 1 of 2 — Choose Your AI Engine</p>
+        </div>
+
+        <div className="glass-card p-5 mb-8 border-white/10 max-w-2xl mx-auto text-center">
+          {authUser ? (
+            <p className="text-emerald-300">Signed in as {authUser.email || authUser.user_metadata?.user_name || "GitHub user"}</p>
+          ) : (
+            <button onClick={handleSignIn} className="bg-white/10 hover:bg-white/20 text-white px-5 py-2 rounded-lg font-bold">
+              Sign in securely with GitHub
+            </button>
+          )}
+          {authError && <p className="text-rose-300 text-sm mt-3" role="alert">{authError}</p>}
         </div>
 
         {/* Provider Grid */}
@@ -214,10 +275,11 @@ export default function LoginPage() {
               <span className="text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1 rounded-full text-sm">✅ Connected</span>
             ) : (
               <button 
-                onClick={() => setGithubConnected(true)}
+                onClick={handleConnectGitHub}
+                disabled={!authUser || githubBusy}
                 className="bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors"
               >
-                Connect Account
+                {githubBusy ? "Redirecting…" : "Install GitHub App"}
               </button>
             )}
           </div>
@@ -227,10 +289,10 @@ export default function LoginPage() {
         <div className="flex justify-center">
           <button 
             onClick={handleContinue}
-            disabled={!canContinue || !githubConnected}
+            disabled={!canContinue || !githubConnected || !authUser}
             className={`
               btn-primary px-12 py-3.5 rounded-xl text-lg w-full max-w-sm
-              ${(!canContinue || !githubConnected) ? "opacity-50 cursor-not-allowed grayscale" : ""}
+              ${(!canContinue || !githubConnected || !authUser) ? "opacity-50 cursor-not-allowed grayscale" : ""}
             `}
           >
             Continue to Dashboard →

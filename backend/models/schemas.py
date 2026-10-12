@@ -14,6 +14,7 @@ class IncidentCreate(BaseModel):
     severity: str = Field(..., max_length=50)
     code_snippet: str = Field("", max_length=50000)
     target_url: str = Field("", max_length=500)
+    target_branch: str = Field("", max_length=255)
     analysis_mode: str = Field("full", max_length=50)
 
 
@@ -47,8 +48,17 @@ class IncidentReport(BaseModel):
         "not_validated", "validation_in_progress", "validation_passed",
         "validation_failed", "needs_manual_review"
     ] = "needs_manual_review"
+    policy_state: Literal["not_checked", "passed", "rejected", "needs_manual_review"] = "needs_manual_review"
+    policy_findings: list[str] = Field(default_factory=list)
+    tests_executed: bool = False
     resolution_time_ms: int
     target_url: str = ""
+    target_branch: str = ""
+    pr_url: str = ""
+    pr_number: int | None = None
+    pr_title: str = ""
+    pr_body: str = ""
+    pr_action_started_at: str = ""
 
 
 class ValidationOutput(BaseModel):

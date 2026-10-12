@@ -7,21 +7,24 @@ from fastapi import FastAPI, HTTPException, Header, Request, Depends, Query
 import os
 import asyncio
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import socketio
 
-from config import OPENROUTER_API_KEY, ALLOWED_ORIGINS
+from config import OPENROUTER_API_KEY, ALLOWED_ORIGINS, APP_STATE_SECRET, PUBLIC_BASE_URL
 from models.schemas import IncidentCreate, IncidentReport
 from agents.orchestrator import Orchestrator
 from db import db
 
 from datetime import datetime, timezone
 from pydantic import BaseModel
+from typing import Literal
 from auth import Principal, get_current_user, _decode_access_token
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from tools.github_app import GitHubAppClient
 
 # ── App Initialisation ──
 app = FastAPI(
@@ -128,6 +131,63 @@ async def readiness_check():
         raise HTTPException(status_code=503, detail="Database is not ready.") from exc
     return {"status": "ready"}
 
+
+@app.post("/api/v1/github/install-url", tags=["integrations"])
+async def github_install_url(user: Principal = Depends(get_current_user)):
+    if len(APP_STATE_SECRET) < 32:
+        raise HTTPException(status_code=503, detail="GitHub installation flow is not configured.")
+    state = URLSafeTimedSerializer(APP_STATE_SECRET, salt="swarmops-github-install").dumps(
+        {"sub": user.user_id}
+    )
+    return {"url": GitHubAppClient().install_url(state)}
+
+
+@app.get("/api/v1/github/installation/callback", tags=["integrations"])
+async def github_install_callback(
+    installation_id: str,
+    setup_action: str,
+    state: str,
+):
+    if len(APP_STATE_SECRET) < 32 or setup_action != "install":
+        raise HTTPException(status_code=400, detail="Invalid GitHub installation callback.")
+    try:
+        payload = URLSafeTimedSerializer(APP_STATE_SECRET, salt="swarmops-github-install").loads(
+            state, max_age=600
+        )
+    except SignatureExpired as exc:
+        raise HTTPException(status_code=400, detail="GitHub installation state expired.") from exc
+    except BadSignature as exc:
+        raise HTTPException(status_code=400, detail="Invalid GitHub installation state.") from exc
+    owner_id = payload.get("sub") if isinstance(payload, dict) else None
+    if not isinstance(owner_id, str) or not owner_id:
+        raise HTTPException(status_code=400, detail="Invalid GitHub installation state.")
+    installation = await GitHubAppClient().verify_installation(installation_id)
+    await db.save_repository_connection(
+        owner_id=owner_id,
+        installation_id=installation_id,
+        account_login=installation["account_login"],
+        account_type=installation["account_type"],
+    )
+    if PUBLIC_BASE_URL:
+        return RedirectResponse(f"{PUBLIC_BASE_URL}/login?github_connected=1", status_code=303)
+    return {"status": "installed", "account_login": installation["account_login"]}
+
+
+@app.get("/api/v1/github/installations", tags=["integrations"])
+async def list_github_installations(user: Principal = Depends(get_current_user)):
+    return await db.get_repository_connections(user.user_id)
+
+
+@app.delete("/api/v1/github/installations/{installation_id}", tags=["integrations"])
+async def remove_github_installation(
+    installation_id: str,
+    user: Principal = Depends(get_current_user),
+):
+    removed = await db.remove_repository_connection(user.user_id, installation_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Installation not found.")
+    return {"status": "removed"}
+
 # ── Incident Endpoints ──
 
 @app.post("/api/v1/incident", response_model=IncidentReport, tags=["incidents"])
@@ -176,7 +236,7 @@ async def get_incident(incident_id: str, user: Principal = Depends(get_current_u
     return report
 
 class ActionRequest(BaseModel):
-    action: str
+    action: Literal["approve", "reject"]
 
 @app.post("/api/v1/incidents/{incident_id}/action", tags=["incidents"])
 async def handle_incident_action(
@@ -187,32 +247,73 @@ async def handle_incident_action(
     report = await db.get(incident_id, owner_id=user.user_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Incident not found")
+    if payload.action == "approve" and report.status == "pr_created" and report.pr_url:
+        return {"status": report.status, "message": "Pull request already exists.", "pr_url": report.pr_url}
     if payload.action == "approve" and (
-        report.status != "awaiting_review" or report.validation_state != "validation_passed"
+        report.status != "awaiting_review"
+        or report.validation_state != "validation_passed"
+        or report.policy_state != "passed"
     ):
         raise HTTPException(status_code=409, detail="Remediation is not eligible for approval.")
-        
+
     if payload.action == "approve":
-        report.status = "deployed"
-        patch_content = report.code_patch
-        target_url = "https://github.com/simulation/repo"
-        
+        if not user.has_any_role({"security_reviewer", "administrator"}):
+            raise HTTPException(status_code=403, detail="A security reviewer role is required to approve remediation.")
+        if report.status == "pr_created" and report.pr_url:
+            return {"status": report.status, "message": "Pull request already exists.", "pr_url": report.pr_url}
+        if not report.target_url or not report.code_patch:
+            raise HTTPException(status_code=409, detail="Incident is missing a repository target or code patch.")
         from tools.github_pr import create_github_pr
-        message = await create_github_pr(
-            target_url=target_url,
-            patch_content=patch_content,
-            incident_id=incident_id,
-            title=f"SwarmOps Fix: {report.description[:50]}",
-            description=report.root_cause,
-            sio=sio,
-            owner_id=report.owner_id,
+        await db.claim_pr_creation(
+            incident_id=incident_id, owner_id=user.user_id, actor_id=user.user_id, report=report
         )
-        
-        # Save patterns to memory
-        from memory_store import memory_store
-        memory_store.extract_and_save(report)
-        
+        try:
+            result = await create_github_pr(
+                target_url=report.target_url,
+                target_branch=report.target_branch,
+                patch_content=report.code_patch,
+                incident_id=incident_id,
+                title=report.pr_title or f"SwarmOps remediation: {report.description[:150]}",
+                description=report.pr_body or report.root_cause,
+                owner_id=report.owner_id,
+                store=db,
+            )
+        except HTTPException as exc:
+            report.status = "awaiting_review"
+            report.pr_action_started_at = ""
+            await db.set(incident_id, report)
+            await db.append_audit_event(
+                incident_id=incident_id, owner_id=user.user_id, actor_id=user.user_id,
+                action="github_pr_create", outcome="failed", detail=str(exc.detail),
+            )
+            raise
+        except Exception as exc:
+            report.status = "awaiting_review"
+            report.pr_action_started_at = ""
+            await db.set(incident_id, report)
+            await db.append_audit_event(
+                incident_id=incident_id, owner_id=user.user_id, actor_id=user.user_id,
+                action="github_pr_create", outcome="failed", detail=type(exc).__name__,
+            )
+            raise HTTPException(status_code=502, detail="Pull request creation failed.") from exc
+        report.status = "pr_created"
+        report.pr_action_started_at = ""
+        report.pr_url = str(result["url"])
+        report.pr_number = int(result["number"])
+        await db.set(incident_id, report)
+        await db.append_audit_event(
+            incident_id=incident_id, owner_id=user.user_id, actor_id=user.user_id,
+            action="github_pr_create", outcome="success", detail=report.pr_url,
+        )
+        message = "Pull request created and verified."
+        await sio.emit("agent_event", {
+            "incident_id": incident_id, "agent": "System", "phase": "action",
+            "status": "completed", "message": message,
+            "timestamp": datetime.now(timezone.utc).isoformat(), "findings": "",
+        }, room=user_room(user.user_id))
     elif payload.action == "reject":
+        if report.status not in {"awaiting_review", "needs_review"}:
+            raise HTTPException(status_code=409, detail="Incident is not awaiting review.")
         report.status = "rejected"
         message = "Proposed fix was rejected by operator."
         await sio.emit("agent_event", {
@@ -224,12 +325,12 @@ async def handle_incident_action(
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "findings": ""
         }, room=user_room(user.user_id))
-    else:
-        raise HTTPException(status_code=400, detail="Invalid action")
-        
-    # Update persistent database
-    await db.set(incident_id, report)
-    return {"status": report.status, "message": message}
+        await db.set(incident_id, report)
+        await db.append_audit_event(
+            incident_id=incident_id, owner_id=user.user_id, actor_id=user.user_id,
+            action="remediation_reject", outcome="success", detail="Rejected by reviewer.",
+        )
+    return {"status": report.status, "message": message, "pr_url": report.pr_url}
 
 # ── Serve Frontend ──
 dist_path = os.path.join(os.path.dirname(__file__), "dist")

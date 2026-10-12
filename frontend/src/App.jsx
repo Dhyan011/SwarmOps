@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "./services/supabase";
 import { IncidentProvider } from "./context/IncidentContext";
 import Layout from "./components/Layout";
 import DashboardPage from "./pages/DashboardPage";
@@ -13,17 +15,25 @@ import SettingsPage from "./pages/SettingsPage";
 
 // AuthGuard Component
 function AuthGuard({ children }) {
-  // Now we check if any provider key is set since we changed the login flow
-  const hasGemini = localStorage.getItem("gemini_key");
-  const hasGroq = localStorage.getItem("groq_key");
-  const hasOpenRouter = localStorage.getItem("openrouter_api_key");
-  // For Ollama we don't necessarily have a key, but for simplicity let's assume they set something
-  // We will just do a loose check for now to allow local testing
-  const hasAuth = hasGemini || hasGroq || hasOpenRouter || true; // true temporarily for ease of testing
   const location = useLocation();
+  const [authState, setAuthState] = useState({ ready: false, authenticated: false });
 
-  if (!hasAuth) {
-    // Redirect to login but save the attempted URL
+  useEffect(() => {
+    if (!supabase) {
+      setAuthState({ ready: true, authenticated: false });
+      return undefined;
+    }
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthState({ ready: true, authenticated: Boolean(data.session) });
+    }).catch(() => setAuthState({ ready: true, authenticated: false }));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthState({ ready: true, authenticated: Boolean(session) });
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (!authState.ready) return <div className="min-h-screen" aria-label="Checking authentication" />;
+  if (!authState.authenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

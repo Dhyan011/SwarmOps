@@ -1,10 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from db import Base, IncidentDB
+from db import AuditEvent, Base, IncidentDB
 from models.schemas import IncidentReport
 
 
@@ -76,4 +77,45 @@ async def test_owner_cannot_be_changed_on_update(tmp_path):
     with pytest.raises(HTTPException) as error:
         await store.set("INC-1", report(owner_id="user-b"))
     assert error.value.status_code == 403
+    await store.close()
+
+
+@pytest.mark.asyncio
+async def test_pr_creation_claim_is_atomic_audited_and_recovers_after_timeout(tmp_path):
+    url = f"sqlite+aiosqlite:///{tmp_path / 'pr-claim.db'}"
+    engine = create_async_engine(url)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    await engine.dispose()
+    store = IncidentDB(database_url=url)
+    eligible_report = report()
+    eligible_report.status = "awaiting_review"
+    await store.set("INC-1", eligible_report)
+
+    candidate = await store.get("INC-1", owner_id="user-a")
+    await store.claim_pr_creation(
+        incident_id="INC-1", owner_id="user-a", actor_id="user-a", report=candidate
+    )
+    assert candidate.status == "pr_creating"
+    assert candidate.pr_action_started_at
+
+    duplicate = await store.get("INC-1", owner_id="user-a")
+    with pytest.raises(HTTPException) as error:
+        await store.claim_pr_creation(
+            incident_id="INC-1", owner_id="user-a", actor_id="user-a", report=duplicate
+        )
+    assert error.value.status_code == 409
+
+    duplicate.pr_action_started_at = (datetime.now(timezone.utc) - timedelta(minutes=11)).isoformat()
+    await store.set("INC-1", duplicate)
+    await store.claim_pr_creation(
+        incident_id="INC-1", owner_id="user-a", actor_id="user-a", report=duplicate
+    )
+    assert duplicate.status == "pr_creating"
+
+    sessions = store._session_factory()
+    async with sessions() as session:
+        events = (await session.execute(select(AuditEvent).where(AuditEvent.incident_id == "INC-1"))).scalars().all()
+    assert len(events) == 2
+    assert all(event.action == "github_pr_create" and event.outcome == "started" for event in events)
     await store.close()

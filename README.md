@@ -1,6 +1,6 @@
 # SwarmOps 🐝
 
-**SwarmOps** is an advanced, multi-agent AI incident response and root-cause analysis platform. It leverages a swarm of specialized AI agents that automatically investigate backend incidents, analyze system metrics, diagnose code-level bugs, and generate deployable Git patches in real-time.
+**SwarmOps** is a multi-agent incident response and root-cause analysis platform. It investigates incidents, proposes code patches, and—after strict validation, deterministic policy checks, and an authorized human review—can create a pull request. It does not directly deploy generated code.
 
 🚀 **Live Demo:** [https://swarmops-1.onrender.com](https://swarmops-1.onrender.com)
 
@@ -34,7 +34,7 @@ When a production system throws an alert or an incident is reported, SwarmOps au
 7. **Fix Generator Agent**: Writes the actual code to fix the bug (generates a `git` patch).
 8. **Validation Agent**: Ensures the proposed fix is logical, secure, and passes basic sanity checks.
 
-As the agents work, they stream their progress in **real-time** over WebSockets to the SwarmOps React Dashboard, giving the user a live, transparent view of the AI "thinking" through the problem.
+As agents work, they send progress events in **real time** over authenticated WebSockets. Raw model token streams and unrestricted chain-of-thought are not exposed.
 
 ### 🗺 Detailed System Architecture
 
@@ -50,6 +50,7 @@ graph TD
     subgraph Browser Client
         UI[React Dashboard UI]:::frontend
         WS_Client[Socket.IO Client]:::frontend
+        Reviewer[Human Security Reviewer]:::frontend
         LocalStorage[(Browser localStorage)]:::storage
     end
 
@@ -58,7 +59,7 @@ graph TD
             Static[Static Asset Server]:::backend
             API[REST API Router]:::backend
             WS_Server[Socket.IO Server]:::backend
-            DB[(Persistent JSON Database)]:::storage
+            DB[(Tenant-scoped PostgreSQL)]:::storage
             Orchestrator[AI Orchestrator Engine]:::backend
         end
 
@@ -80,11 +81,10 @@ graph TD
     end
 
     %% Authentication Flow
-    UI -- "1. OAuth Login" --> OpenRouter
-    OpenRouter -- "2. Returns API Key" --> LocalStorage
+    UI -- "Supabase Auth session" --> API
     
     %% API Requests
-    UI -- "3. POST /incident (X-API-Key)" --> API
+    UI -- "POST /incident (JWT + provider key)" --> API
     API -- "Stores Reports" --> DB
     
     %% WebSockets
@@ -92,7 +92,7 @@ graph TD
 
     %% Server Internal Workings
     API -- "Triggers Investigation" --> Orchestrator
-    Orchestrator -- "Clones repo via Git Tool" --> GitHub
+    Orchestrator -- "Reads supplied public URL context" --> GitHub
     
     %% Orchestrator to Agents (Workflow)
     Orchestrator --> Agent1
@@ -104,16 +104,17 @@ graph TD
     %% AI Actions
     Swarm -- "Sends Context & Prompts" --> OpenRouter
     Swarm -- "Emits Real-time Logs" --> WS_Server
-    Agent7 -- "Auto-Creates PR on Approval" --> GitHub
+    Reviewer -- "Creates PR via owner-linked GitHub App" --> GitHub
 ```
 
 ### ⚙️ Technical Deep Dive
 
 SwarmOps is built with a meticulously designed architecture that balances high performance with strict security:
 
-1. **The Single-Container Monolith**: Rather than managing complex microservices, SwarmOps compiles the Vite/React frontend and serves it directly through FastAPI's StaticFiles in a single Docker container. This allows for zero-latency communication between the frontend and the Socket.IO server, vastly simplifying deployment while maintaining enterprise-grade performance.
-2. **Dynamic AI Orchestration**: The `Orchestrator` uses asynchronous Python (`asyncio`) to spin up agents. It dynamically instantiates the `AsyncOpenAI` client on a *per-request* basis using the API key passed in the HTTP headers. This ensures absolute tenant isolation—one user's API key can never accidentally be used for another user's request.
-3. **Structured Pydantic Validation**: All inputs and LLM outputs are strictly validated using Pydantic schemas. This acts as an internal LLM firewall, ensuring the AI agents return valid JSON structures (like `IncidentReport`) and preventing hallucinated fields from crashing the UI.
+1. **Single-container deployment**: The Vite/React frontend is served by FastAPI in the current deployment layout.
+2. **Verified identity and tenant isolation**: Supabase access-token signatures, issuer, audience, and expiry are verified by the backend. Incident rows, database queries, and realtime events are scoped to the authenticated owner.
+3. **Fail-closed AI validation**: The validation agent must satisfy a strict JSON schema. A separate deterministic patch policy rejects secrets and protected paths; generated tests are marked as unexecuted and do not count as proof.
+4. **Human-controlled GitHub action**: A security reviewer or administrator can request a PR only through that user's linked GitHub App installation. The backend context-checks the patch and stores success only after GitHub returns a verified PR URL and number.
 
 ---
 
@@ -121,20 +122,21 @@ SwarmOps is built with a meticulously designed architecture that balances high p
 
 Using SwarmOps is designed to be as seamless as possible:
 
-1. **Authenticate**: Click "Enter Command Center" on the landing page. You will be redirected to OpenRouter to authenticate. This securely provides SwarmOps with the ability to run AI models on your behalf without requiring you to manually copy/paste API keys.
-2. **Report an Incident**: On the Dashboard, click **New Investigation**. Provide a brief description of the bug (e.g., *"Users are reporting 500 errors when clicking the checkout button"*), the affected service, and the target GitHub repository URL.
-3. **Watch the Swarm**: Sit back as the investigation begins. The **Live Feed** panel will show real-time WebSocket logs of exactly what each agent is thinking and doing. The Pipeline graph will illuminate as phases are completed.
-4. **Review Findings**: Once complete, the system will present a synthesized Root Cause, a Confidence Score, and a detailed Code Patch (`git diff`) proposed by the Fix Generator agent.
-5. **Approve Patch**: If the fix looks correct, click **Approve & Deploy Fix**. SwarmOps will automatically apply the patch and generate a Pull Request to your repository.
+1. **Authenticate**: Sign in with GitHub through the configured Supabase Auth provider. The frontend needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; the backend independently verifies the resulting access token.
+2. **Link GitHub App**: Install the configured GitHub App from the setup page. Repository access is limited to repositories selected for that installation; no personal access token is stored.
+3. **Report an Incident**: On the Dashboard, click **New Investigation**. Provide a brief description, affected service, and a canonical HTTPS GitHub repository URL. Public URL context fetch is public-only.
+4. **Watch the Swarm**: Authenticated Socket.IO progress events are delivered to the user's private room; raw model token streams are not sent.
+5. **Review Findings**: Check the root cause, confidence, proposed patch, policy findings, and `tests_executed` state (currently false; generated tests have not been executed).
+6. **Request a PR**: Only a `security_reviewer` or `administrator` role in trusted Supabase `app_metadata.roles` can approve a policy-cleared proposal. SwarmOps creates a pull request, not a deployment.
 
 ---
 
 ## 🔒 Privacy & Data Collection
 
 SwarmOps is built with a **Privacy First** mindset:
-- **No Personal Data Stored:** We do not track users or store personal emails/passwords.
-- **Secure API Key Management:** Your OpenRouter API key is securely stored in your browser's `localStorage`. The backend only receives the key via headers on a per-request basis and never saves it to our database.
-- **Persistent Analytics:** Incident reports and generated patches are permanently stored in a lightweight JSON database (`data/incidents.json`). This powers the Dashboard Analytics (allowing you to track your team's efficiency over time) without requiring complex external database connections.
+- **Verified account identity:** Supabase user IDs are used for ownership; incident records, audit events, and GitHub installation links are stored in PostgreSQL.
+- **Separate credentials:** Supabase access tokens authorize the app; optional model-provider keys are a separate header. GitHub App installation tokens are minted short-lived for backend operations and are never persisted.
+- **Production persistence:** Configure a PostgreSQL `DATABASE_URL` and run Alembic migrations. Incident and audit data are not stored in a JSON fallback.
 
 ---
 
@@ -177,9 +179,7 @@ The FastAPI backend is configured to serve the compiled React frontend automatic
 cd backend
 uvicorn main:socket_app --host 0.0.0.0 --port 8000 --reload
 ```
-Open `http://localhost:8000` in your browser. 
-
-*Note: You do not need an `.env` file! Just click "Sign In with OpenRouter" on the local frontend to authenticate.*
+Open `http://localhost:8000` in your browser after configuring Supabase Auth, PostgreSQL, CORS, and the public base URL. For local development, use `.env.example` as a starting point and set the matching `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` when building the frontend.
 
 ---
 
@@ -192,9 +192,12 @@ To deploy on Render:
 2. Connect your GitHub repository.
 3. Set the **Root Directory** to `backend`.
 4. Set the **Dockerfile Path** to `Dockerfile`.
-5. *No environment variables are required for deployment since it uses OAuth!*
+5. Configure `APP_ENV`, `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_JWT_AUDIENCE`, `CORS_ALLOWED_ORIGINS`, `PUBLIC_BASE_URL`, and `APP_STATE_SECRET`.
+6. For GitHub PR support, configure `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, and `GITHUB_APP_PRIVATE_KEY`. Set the GitHub App setup URL to `https://<your-host>/api/v1/github/installation/callback`; grant only Metadata read, Contents read/write, and Pull requests read/write permissions.
+7. Build the frontend with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; enable GitHub as a Supabase Auth provider and allow the app callback URL.
+8. Apply schema changes with `cd backend && alembic upgrade head`.
 
-Render will automatically run the multi-stage build (compiling the React app and installing the Python dependencies) and serve the unified application.
+The backend is unavailable for authenticated operations if its required JWT or database configuration is missing. Approval roles must be assigned through trusted Supabase `app_metadata.roles`; user-editable metadata is not accepted.
 
 ---
 

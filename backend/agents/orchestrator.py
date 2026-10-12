@@ -29,6 +29,7 @@ from agents.pr_composer import PRComposerAgent
 from tools.github_fetcher import fetch_url_context
 from tools.similar_incident import find_similar_incident
 from memory_store import memory_store
+from security_policy import evaluate_patch
 
 
 class Orchestrator:
@@ -199,15 +200,29 @@ class Orchestrator:
             validated_output = ValidationOutput.model_validate(validation_payload)
         except Exception:
             pass
-        validation_status = (
-            validated_output.validation_status
-            if validated_output is not None
-            else "needs_review"
-        )
+        if validated_output is None:
+            validation_status = "needs_review"
+        elif validated_output.validation_status == "rejected":
+            validation_status = "rejected"
+        elif (
+            validated_output.validation_status == "approved"
+            and validated_output.safety_score >= 80
+            and validated_output.completeness
+            and not validated_output.potential_side_effects
+        ):
+            validation_status = "approved"
+        else:
+            validation_status = "needs_review"
         if "error" in test_result:
             validation_status = "needs_review"
+        policy_result = evaluate_patch(fix_result.get("code_patch", ""))
+        remediation_eligible = (
+            validation_status == "approved"
+            and policy_result.state == "passed"
+            and "error" not in test_result
+        )
 
-        if validation_status == "approved":
+        if remediation_eligible:
             # ── Phase 6: PR Composer ──────────────────────────────────────
             context["phase"] = "pr_composer"
             await self._emit_phase(incident_id, "pr_composer", "started", "PR composing initiated", owner_id)
@@ -229,7 +244,7 @@ class Orchestrator:
             severity=incident.severity,
             status=(
                 "validation_failed" if validation_status == "rejected"
-                else "awaiting_review" if validation_status == "approved"
+                else "awaiting_review" if remediation_eligible
                 else "needs_review"
             ),
             created_at=created_at,
@@ -249,8 +264,12 @@ class Orchestrator:
                 else "validation_passed" if validation_status == "approved"
                 else "needs_manual_review"
             ),
+            policy_state=policy_result.state,
+            policy_findings=list(policy_result.findings),
+            tests_executed=False,
             resolution_time_ms=resolution_ms,
             target_url=incident.target_url,
+            target_branch=incident.target_branch,
             auto_escalated=auto_escalated,
             similar_incident_id=similar_incident_id,
             pr_title=pr_result.get("pr_title", ""),
@@ -260,11 +279,11 @@ class Orchestrator:
         from db import db
         await db.set(incident_id, report)
 
-        if validation_status != "approved":
+        if report.status != "awaiting_review":
             await self.sio.emit("investigation_complete", {
                 "incident_id": incident_id,
-                "status": "validation_failed" if validation_status == "rejected" else "needs_review",
-                "message": "Validation did not pass. Manual review is required before remediation."
+                "status": report.status,
+                "message": "Automated review did not clear all policy gates. Manual review is required before remediation."
             }, room=f"user:{owner_id}")
             return report
 
