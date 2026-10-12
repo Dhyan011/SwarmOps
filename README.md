@@ -123,20 +123,21 @@ SwarmOps is built with a meticulously designed architecture that balances high p
 
 Using SwarmOps is designed to be as seamless as possible:
 
-1. **Authenticate**: Sign in with GitHub through the configured Supabase Auth provider. The frontend needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; the backend independently verifies the resulting access token.
-2. **Link GitHub App**: Install the configured GitHub App from the setup page. Repository access is limited to repositories selected for that installation; no personal access token is stored.
-3. **Report an Incident**: On the Dashboard, click **New Investigation**. Provide a brief description, affected service, and a canonical HTTPS GitHub repository URL. Public URL context fetch is public-only.
+1. **Sign in to SwarmOps**: Use Google through Supabase Auth. The frontend needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; the backend independently verifies the resulting access token. Google is the identity provider; it does not grant repository access.
+2. **Connect GitHub when needed**: Install the configured GitHub App separately. Repository access is limited by the installation and per-operation checks; no personal access token is stored. GitHub connection is optional for manual-evidence investigations.
+3. **Report an incident**: Start an investigation with a short description and any available service, logs/stack trace/code, and optional public GitHub URL. A public repository URL is context, not write permission; manual evidence is not live telemetry.
 4. **Watch the Swarm**: Authenticated Socket.IO progress events are delivered to the user's private room; raw model token streams are not sent.
-5. **Review Findings**: Check the root cause, confidence, proposed patch, policy findings, and `tests_executed` state (currently false; generated tests have not been executed).
-6. **Request a PR**: Only a `security_reviewer` or `administrator` role in trusted Supabase `app_metadata.roles` can approve a policy-cleared proposal. SwarmOps creates a pull request, not a deployment.
+5. **Review findings**: Treat model output as a hypothesis. Check the evidence, policy findings, proposed patch, and `tests_executed` state (currently false; generated tests have not been executed).
+6. **Request a PR**: Only a `security_reviewer` or `administrator` role in trusted Supabase `app_metadata.roles` can approve a policy-cleared proposal. SwarmOps creates a pull request, not a deployment; a PR does not prove that an incident is resolved.
 
 ---
 
-## 🔒 Privacy & Data Collection
+## 🔒 Data and credential handling
 
 SwarmOps is built with a **Privacy First** mindset:
 - **Verified account identity:** Supabase user IDs are used for ownership; incident records, audit events, and GitHub installation links are stored in PostgreSQL.
-- **Separate credentials:** Supabase access tokens authorize the app; optional model-provider keys are a separate header. GitHub App installation tokens are minted short-lived for backend operations and are never persisted.
+- **Separate access:** Supabase establishes identity, while the GitHub App authorizes repository operations. GitHub App private keys and short-lived installation tokens remain on the backend. The browser uses tab-scoped Supabase session storage; retired browser model-key settings are cleared.
+- **Model processing:** Incident descriptions, code, and supplied evidence may be sent to the deployment-configured OpenRouter-compatible model provider. Operators must review the provider's data-handling terms; do not submit secrets or personal data unnecessarily.
 - **Production persistence:** Configure a PostgreSQL `DATABASE_URL` and run Alembic migrations. Incident and audit data are not stored in a JSON fallback.
 
 ---
@@ -152,8 +153,8 @@ SwarmOps is built with a **Privacy First** mindset:
 
 ### Frontend (Real-time Dashboard)
 * **React + Vite**: Blazing fast frontend build tool.
-* **Tailwind CSS**: Utility-first styling with custom Dark Cosmic Glassmorphism UI.
-* **Framer Motion**: Smooth, high-performance animations and 3D parallax effects.
+* **Tailwind CSS**: Utility styling for a restrained, evidence-first engineering workspace.
+* **React Router**: Public landing, authentication callback, and authenticated investigation routes.
 
 ---
 
@@ -172,6 +173,7 @@ pip install -r requirements.txt
 cd frontend
 npm ci
 # Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the build environment.
+# Enable Google in Supabase Auth and allow http://localhost:8000/auth/callback.
 npm run build
 ```
 
@@ -181,7 +183,7 @@ The FastAPI backend is configured to serve the compiled React frontend automatic
 cd backend
 uvicorn main:socket_app --host 0.0.0.0 --port 8000 --reload
 ```
-Open `http://localhost:8000` in your browser after configuring Supabase Auth, PostgreSQL, CORS, and the public base URL. For local development, use `.env.example` as a starting point and set the matching `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` when building the frontend.
+Open `http://localhost:8000` after configuring Supabase Auth, PostgreSQL, CORS, the public base URL, and the Google OAuth provider/redirect URL. For local development, use the environment examples and allow the matching callback URL in Supabase. Model credentials are configured on the backend; they are not entered into the browser.
 
 ---
 
@@ -194,7 +196,7 @@ To deploy on Render:
 2. Configure the backend values `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_JWT_AUDIENCE`, `APP_STATE_SECRET`, and `OPENROUTER_API_KEY`. Point `PUBLIC_BASE_URL` and `CORS_ALLOWED_ORIGINS` at the frontend's public URL/origin.
 3. Configure frontend build values `VITE_API_URL` (the backend URL), `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY`.
 4. For GitHub PR support, configure `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, and `GITHUB_APP_PRIVATE_KEY`. Set the GitHub App setup URL to `https://<backend-host>/api/v1/github/installation/callback`; grant Metadata read, Contents write, and Pull requests write. Runtime tokens are further restricted to one repository and these required permissions.
-5. Enable GitHub as a Supabase Auth provider and allow the frontend login URL as a redirect destination.
+5. Enable Google as a Supabase Auth provider and allow `https://<frontend-host>/auth/callback` as a redirect destination. GitHub App installation is configured separately and is not used for SwarmOps login.
 6. Apply schema changes with `cd backend && alembic upgrade head` before marking the backend ready.
 7. Capacity defaults are 3 concurrent investigations per process, a 5-second queue wait, and a 900-second execution deadline; tune with the matching `MAX_CONCURRENT_INVESTIGATIONS`, `INVESTIGATION_QUEUE_WAIT_SECONDS`, and `INVESTIGATION_TIMEOUT_SECONDS` environment variables.
 

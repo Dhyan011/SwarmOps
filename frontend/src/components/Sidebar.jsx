@@ -10,6 +10,7 @@ import {
   HiOutlineSun,
   HiOutlineMoon,
 } from "react-icons/hi2";
+import { supabase } from "../services/supabase";
 
 const navItems = [
   { to: "/dashboard", icon: HiOutlineSquares2X2, label: "Dashboard", color: "indigo" },
@@ -38,9 +39,15 @@ export default function Sidebar() {
     return location.pathname.startsWith(path);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("openrouter_api_key");
-    navigate("/login");
+  const handleLogout = async () => {
+    if (supabase) {
+      const { error } = await supabase.auth.signOut();
+      if (error) return;
+    }
+    for (const key of ["gemini_key", "groq_key", "openrouter_api_key"]) {
+      try { localStorage.removeItem(key); } catch { /* Storage may be unavailable. */ }
+    }
+    navigate("/login", { replace: true });
   };
 
   const getColorClasses = (color, active) => {
@@ -129,11 +136,9 @@ export default function Sidebar() {
 
       {/* Bottom Section */}
       <div className="flex flex-col items-center gap-3 pb-5 w-full px-3">
-        {/* Provider Indicator (Hardcoded for Demo) */}
-        <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-glow-blue animate-pulse-dot" title="Gemini Connected" />
-        
         <button 
           onClick={toggleTheme}
+          aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
           className="w-full max-w-[48px] aspect-square rounded-xl flex items-center justify-center text-slate-400 hover:text-amber-300 hover:bg-amber-500/10 transition-all duration-200 group relative"
         >
           {theme === "dark" ? <HiOutlineSun className="w-[22px] h-[22px]" /> : <HiOutlineMoon className="w-[22px] h-[22px]" />}
@@ -144,6 +149,7 @@ export default function Sidebar() {
 
         <button 
           onClick={handleLogout}
+          aria-label="Sign out of SwarmOps"
           className="w-full max-w-[48px] aspect-square rounded-xl flex items-center justify-center text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-all duration-200 group relative"
         >
           <HiArrowRightOnRectangle className="w-[22px] h-[22px]" />

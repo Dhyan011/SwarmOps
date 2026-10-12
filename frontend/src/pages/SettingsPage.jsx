@@ -1,152 +1,133 @@
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { HiOutlineKey, HiOutlineCloud, HiOutlineCheckCircle } from "react-icons/hi2";
+import { useCallback, useEffect, useState } from "react";
+import { HiOutlineCheckCircle, HiOutlineExclamationTriangle, HiOutlineKey, HiOutlineLink } from "react-icons/hi2";
+import api from "../services/api";
 
 export default function SettingsPage() {
-  const [keys, setKeys] = useState({
-    gemini: "",
-    groq: "",
-    openrouter: "",
-  });
-  
-  const [saved, setSaved] = useState(false);
+  const [installations, setInstallations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [providerConfigured, setProviderConfigured] = useState(null);
+  const [removingId, setRemovingId] = useState("");
+  const [notice, setNotice] = useState("");
 
-  useEffect(() => {
-    setKeys({
-      gemini: localStorage.getItem("gemini_key") || "",
-      groq: localStorage.getItem("groq_key") || "",
-      openrouter: localStorage.getItem("openrouter_api_key") || "",
-    });
+  const loadSettings = useCallback(async () => {
+    const [installResult, healthResult] = await Promise.allSettled([
+      api.get("/api/v1/github/installations"),
+      api.get("/health"),
+    ]);
+    return {
+      installations: installResult.status === "fulfilled" && Array.isArray(installResult.value.data) ? installResult.value.data : [],
+      error: installResult.status === "rejected"
+        ? installResult.reason?.response?.data?.detail || "GitHub connection status could not be loaded."
+        : "",
+      providerConfigured: healthResult.status === "fulfilled" ? Boolean(healthResult.value.data?.llm_configured) : null,
+    };
   }, []);
 
-  const handleChange = (e) => {
-    setKeys({ ...keys, [e.target.name]: e.target.value });
-    setSaved(false);
+  const refresh = async () => {
+    setLoading(true);
+    setError("");
+    const result = await loadSettings();
+    setInstallations(result.installations);
+    setError(result.error);
+    setProviderConfigured(result.providerConfigured);
+    setLoading(false);
   };
 
-  const handleSave = (e) => {
-    e.preventDefault();
-    if (keys.gemini) localStorage.setItem("gemini_key", keys.gemini);
-    else localStorage.removeItem("gemini_key");
+  useEffect(() => {
+    let active = true;
+    loadSettings().then((result) => {
+      if (!active) return;
+      setInstallations(result.installations);
+      setError(result.error);
+      setProviderConfigured(result.providerConfigured);
+      setLoading(false);
+    });
+    return () => { active = false; };
+  }, [loadSettings]);
 
-    if (keys.groq) localStorage.setItem("groq_key", keys.groq);
-    else localStorage.removeItem("groq_key");
-
-    if (keys.openrouter) localStorage.setItem("openrouter_api_key", keys.openrouter);
-    else localStorage.removeItem("openrouter_api_key");
-
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  const connectGitHub = async () => {
+    setError("");
+    try {
+      const { data } = await api.post("/api/v1/github/install-url");
+      if (!data?.url) throw new Error("The server did not return an installation URL.");
+      window.location.assign(data.url);
+    } catch (cause) {
+      setError(cause.response?.data?.detail || cause.message || "Could not start GitHub App installation.");
+    }
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100 } }
+  const disconnectGitHub = async (installation) => {
+    const id = String(installation.installation_id);
+    if (!window.confirm(`Remove the SwarmOps link to ${installation.account_login}? This does not uninstall the GitHub App.`)) return;
+    setRemovingId(id);
+    setError("");
+    setNotice("");
+    try {
+      await api.delete(`/api/v1/github/installations/${encodeURIComponent(id)}`);
+      setInstallations((current) => current.filter((item) => String(item.installation_id) !== id));
+      setNotice("The SwarmOps link was removed. The GitHub App remains installed in GitHub.");
+    } catch (cause) {
+      setError(cause.response?.data?.detail || "Could not remove this GitHub link.");
+    } finally {
+      setRemovingId("");
+    }
   };
 
   return (
-    <motion.div 
-      className="max-w-4xl mx-auto space-y-10"
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      <motion.div variants={itemVariants}>
-        <h1 className="text-3xl font-black tracking-tight mb-2 text-white">
-          System Configuration
-        </h1>
-        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider">
-          Manage AI Providers and Integrations
-        </p>
-      </motion.div>
+    <main className="mx-auto max-w-4xl space-y-8">
+      <header>
+        <p className="text-sm font-medium text-blue-200">Account and integrations</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Settings</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">Identity, repository access, and model execution are separate. This page reports only states returned by the backend.</p>
+      </header>
 
-      <motion.div variants={itemVariants} className="glass-card p-8 card-3d">
-        <div className="flex items-center gap-3 mb-8 border-b border-white/10 pb-4">
-          <HiOutlineKey className="w-6 h-6 text-indigo-400" />
-          <h2 className="text-lg font-bold text-white uppercase tracking-widest">Model Provider Keys</h2>
+      {error && <div role="alert" className="rounded-lg border border-rose-300/20 bg-rose-300/5 p-4 text-sm text-rose-100">{error}<button type="button" onClick={refresh} className="ml-3 underline underline-offset-2">Retry</button></div>}
+      {notice && <div role="status" className="rounded-lg border border-emerald-300/20 bg-emerald-300/5 p-4 text-sm text-emerald-100">{notice}</div>}
+
+      <section className="rounded-xl border border-white/10 bg-[#0f151f] p-5 sm:p-6" aria-labelledby="github-heading">
+        <div className="flex items-start gap-3">
+          <HiOutlineLink className="mt-0.5 h-5 w-5 text-blue-200" />
+          <div className="flex-1">
+            <h2 id="github-heading" className="text-lg font-semibold text-white">GitHub App access</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">GitHub is not your SwarmOps sign-in provider here. An installation grants repository access under the App’s configured permissions. A linked installation does not guarantee write access to every repository.</p>
+          </div>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-6">
-          
-          {/* Gemini */}
-          <div className="space-y-2">
-            <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-400">
-              Google Gemini API Key
-            </label>
-            <input
-              type="password"
-              name="gemini"
-              value={keys.gemini}
-              onChange={handleChange}
-              placeholder="AIzaSy..."
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all shadow-inner"
-            />
-            <p className="text-xs text-slate-500 font-bold mt-1">Required for advanced multimodal capabilities and deep context reasoning.</p>
+        {loading ? <p className="mt-5 text-sm text-slate-400" role="status">Checking linked installations…</p> : installations.length ? (
+          <ul className="mt-5 divide-y divide-white/10 rounded-lg border border-white/10">
+            {installations.map((installation) => (
+              <li key={installation.installation_id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium text-white">{installation.account_login || "GitHub account"}</p>
+                  <p className="mt-1 text-xs text-slate-400">{installation.account_type || "Account"} · installation {installation.installation_id}</p>
+                </div>
+                <button type="button" onClick={() => disconnectGitHub(installation)} disabled={removingId === String(installation.installation_id)} className="min-h-9 rounded-md border border-white/15 px-3 text-sm text-slate-200 hover:bg-white/5 disabled:opacity-60">{removingId === String(installation.installation_id) ? "Removing…" : "Remove SwarmOps link"}</button>
+              </li>
+            ))}
+          </ul>
+        ) : !loading ? (
+          <div className="mt-5 rounded-lg border border-white/10 p-4">
+            <p className="text-sm text-slate-300">No GitHub App installation is linked. You can still investigate with manually supplied context.</p>
+            <button type="button" onClick={connectGitHub} className="mt-3 min-h-10 rounded-md bg-blue-300 px-4 font-semibold text-slate-950 hover:bg-blue-200">Connect GitHub App</button>
           </div>
+        ) : null}
+      </section>
 
-          {/* Groq */}
-          <div className="space-y-2">
-            <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-400">
-              Groq API Key
-            </label>
-            <input
-              type="password"
-              name="groq"
-              value={keys.groq}
-              onChange={handleChange}
-              placeholder="gsk_..."
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all shadow-inner"
-            />
-            <p className="text-xs text-slate-500 font-bold mt-1">Used for ultra-fast Llama-3 log parsing and metrics aggregation.</p>
-          </div>
-
-          {/* OpenRouter */}
-          <div className="space-y-2">
-            <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-400">
-              OpenRouter API Key
-            </label>
-            <input
-              type="password"
-              name="openrouter"
-              value={keys.openrouter}
-              onChange={handleChange}
-              placeholder="sk-or-v1-..."
-              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all shadow-inner"
-            />
-            <p className="text-xs text-slate-500 font-bold mt-1">Provides access to Claude 3.5 Sonnet and generic model rotation fallback.</p>
-          </div>
-
-          <div className="pt-6 border-t border-white/10 flex items-center justify-between">
-            <div className="text-xs text-slate-400 font-bold">
-              Keys are stored securely in your browser's local storage.
+      <section className="rounded-xl border border-white/10 bg-[#0f151f] p-5 sm:p-6" aria-labelledby="model-heading">
+        <div className="flex items-start gap-3">
+          <HiOutlineKey className="mt-0.5 h-5 w-5 text-blue-200" />
+          <div className="flex-1">
+            <h2 id="model-heading" className="text-lg font-semibold text-white">Model provider</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">The current backend uses an OpenRouter-compatible provider configured by the deployment operator. Credentials are not stored in browser storage. Submitted incident descriptions, code, and supplied evidence may be sent to that configured model provider for analysis.</p>
+            <div className="mt-4 flex items-center gap-2 text-sm">
+              {providerConfigured === null ? <HiOutlineExclamationTriangle className="h-4 w-4 text-amber-200" /> : <HiOutlineCheckCircle className={`h-4 w-4 ${providerConfigured ? "text-emerald-200" : "text-amber-200"}`} />}
+              <span className="text-slate-200">{providerConfigured === null ? "Provider status unavailable" : providerConfigured ? "Backend reports provider credentials configured" : "Backend reports provider credentials missing"}</span>
             </div>
-            <button
-              type="submit"
-              className="inline-flex items-center gap-2 btn-primary px-6 py-2.5 rounded-lg text-sm font-bold text-white shadow-glow-indigo"
-            >
-              <HiOutlineCloud className="w-5 h-5" />
-              Save Configuration
-            </button>
+            <p className="mt-2 text-xs text-slate-500">This reports configuration only; it does not verify model availability, account quota, or a successful model request.</p>
           </div>
-          
-          {saved && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }} 
-              animate={{ opacity: 1, y: 0 }} 
-              className="flex items-center gap-2 p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-sm font-bold"
-            >
-              <HiOutlineCheckCircle className="w-5 h-5" />
-              Configuration saved successfully. Model rotation is active.
-            </motion.div>
-          )}
-
-        </form>
-      </motion.div>
-    </motion.div>
+        </div>
+      </section>
+    </main>
   );
 }

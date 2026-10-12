@@ -1,7 +1,7 @@
 import axios from "axios";
 import { getSupabaseAccessToken } from "./supabase";
 
-// If VITE_API_URL is empty, it uses the current origin automatically
+// If VITE_API_URL is empty, use the current origin.
 const API_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
 const api = axios.create({
@@ -9,27 +9,19 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Application identity and model-provider credentials are separate tokens.
+// Supabase identity is sent separately from the deployment-managed model key.
 api.interceptors.request.use(async (config) => {
   const accessToken = await getSupabaseAccessToken();
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
-  const providerKey = localStorage.getItem("openrouter_api_key");
-  if (providerKey) config.headers["X-API-Key"] = providerKey;
   return config;
 });
 
-export const exchangeOAuthCode = async (code) => {
-  // Exchange code for API key directly with OpenRouter
-  const response = await axios.post("https://openrouter.ai/api/v1/auth/keys", {
-    code: code
-  });
-  return response.data; // Should contain the generated key
-};
-
 export const createIncident = (data) => api.post("/api/v1/incident", data);
-export const getIncidents = () => api.get("/api/v1/incidents");
+export const getIncidents = (params) => api.get("/api/v1/incidents", { params });
 export const getIncident = (id) => api.get(`/api/v1/incidents/${id}`);
 export const handleIncidentAction = (id, action) => api.post(`/api/v1/incidents/${id}/action`, { action });
 export const getHealth = () => api.get("/health");
+export const getGitHubInstallations = () => api.get("/api/v1/github/installations");
+export const startGitHubInstallation = () => api.post("/api/v1/github/install-url");
 
 export default api;
