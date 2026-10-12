@@ -38,8 +38,6 @@ class LogAnalyzerAgent(BaseAgent):
             
         client = AsyncOpenAI(api_key=api_key, base_url=OPENROUTER_BASE_URL, timeout=30.0, max_retries=0)
         
-        await self.emit(incident_id, phase, "started", f"{self.name} is formulating a KQL query to fetch real logs...", owner_id=owner_id)
-        
         kql_prompt = (
             "You are a diagnostic tool. Generate ONLY a valid Kusto Query Language (KQL) "
             "query to search Azure Log Analytics for the incident described below. "
@@ -48,6 +46,7 @@ class LogAnalyzerAgent(BaseAgent):
         )
         
         try:
+            await self.emit(incident_id, phase, "started", f"{self.name} is formulating a KQL query to fetch real logs...", owner_id=owner_id)
             resp = await client.chat.completions.create(
                 model=LLM_MODEL,
                 messages=[
@@ -72,5 +71,7 @@ class LogAnalyzerAgent(BaseAgent):
             
         except Exception:
             context["azure_logs_error"] = "Azure log retrieval failed."
+        finally:
+            await client.close()
             
         return await super().run(context, retries)

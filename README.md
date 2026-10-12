@@ -54,7 +54,7 @@ graph TD
         LocalStorage[(Browser localStorage)]:::storage
     end
 
-    subgraph Server [Monolithic FastAPI Docker Container]
+    subgraph Server [FastAPI Backend Container]
         subgraph FastAPI [Backend Services]
             Static[Static Asset Server]:::backend
             API[REST API Router]:::backend
@@ -111,10 +111,11 @@ graph TD
 
 SwarmOps is built with a meticulously designed architecture that balances high performance with strict security:
 
-1. **Single-container deployment**: The Vite/React frontend is served by FastAPI in the current deployment layout.
+1. **Flexible deployment**: The Dockerfile can serve the Vite/React UI and API from one container; the included Render blueprint instead deploys a backend web service and a separate static frontend.
 2. **Verified identity and tenant isolation**: Supabase access-token signatures, issuer, audience, and expiry are verified by the backend. Incident rows, database queries, and realtime events are scoped to the authenticated owner.
 3. **Fail-closed AI validation**: The validation agent must satisfy a strict JSON schema. A separate deterministic patch policy rejects secrets and protected paths; generated tests are marked as unexecuted and do not count as proof.
 4. **Human-controlled GitHub action**: A security reviewer or administrator can request a PR only through that user's linked GitHub App installation. The backend context-checks the patch and stores success only after GitHub returns a verified PR URL and number.
+5. **Bounded reliability controls**: Provider calls use limited retries and timeouts. Investigation admission has a configurable queue wait, concurrency cap, and end-to-end deadline; `/ready` checks database connectivity. The concurrency cap is per backend process.
 
 ---
 
@@ -169,7 +170,8 @@ pip install -r requirements.txt
 ### 2. Setup Frontend
 ```bash
 cd frontend
-npm install
+npm ci
+# Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the build environment.
 npm run build
 ```
 
@@ -185,17 +187,16 @@ Open `http://localhost:8000` in your browser after configuring Supabase Auth, Po
 
 ## ☁️ Deployment
 
-SwarmOps is configured as a **Single-Container Monolith** using a multi-stage Dockerfile. This means the React frontend and Python backend are built and hosted together in the exact same container.
+The multi-stage Dockerfile can build a **single-container deployment**. The included `render.yaml` instead deploys the backend as a Docker web service and the React app as a separate static site.
 
 To deploy on Render:
-1. Create a new **Web Service**.
-2. Connect your GitHub repository.
-3. Set the **Root Directory** to `backend`.
-4. Set the **Dockerfile Path** to `Dockerfile`.
-5. Configure `APP_ENV`, `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_JWT_AUDIENCE`, `CORS_ALLOWED_ORIGINS`, `PUBLIC_BASE_URL`, and `APP_STATE_SECRET`.
-6. For GitHub PR support, configure `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, and `GITHUB_APP_PRIVATE_KEY`. Set the GitHub App setup URL to `https://<your-host>/api/v1/github/installation/callback`; grant only Metadata read, Contents read/write, and Pull requests read/write permissions.
-7. Build the frontend with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; enable GitHub as a Supabase Auth provider and allow the app callback URL.
-8. Apply schema changes with `cd backend && alembic upgrade head`.
+1. Apply the Render Blueprint from `render.yaml`, or create the backend web service and static frontend separately.
+2. Configure the backend values `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_JWT_AUDIENCE`, `APP_STATE_SECRET`, and `OPENROUTER_API_KEY`. Point `PUBLIC_BASE_URL` and `CORS_ALLOWED_ORIGINS` at the frontend's public URL/origin.
+3. Configure frontend build values `VITE_API_URL` (the backend URL), `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY`.
+4. For GitHub PR support, configure `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, and `GITHUB_APP_PRIVATE_KEY`. Set the GitHub App setup URL to `https://<backend-host>/api/v1/github/installation/callback`; grant Metadata read, Contents write, and Pull requests write. Runtime tokens are further restricted to one repository and these required permissions.
+5. Enable GitHub as a Supabase Auth provider and allow the frontend login URL as a redirect destination.
+6. Apply schema changes with `cd backend && alembic upgrade head` before marking the backend ready.
+7. Capacity defaults are 3 concurrent investigations per process, a 5-second queue wait, and a 900-second execution deadline; tune with the matching `MAX_CONCURRENT_INVESTIGATIONS`, `INVESTIGATION_QUEUE_WAIT_SECONDS`, and `INVESTIGATION_TIMEOUT_SECONDS` environment variables.
 
 The backend is unavailable for authenticated operations if its required JWT or database configuration is missing. Approval roles must be assigned through trusted Supabase `app_metadata.roles`; user-editable metadata is not accepted.
 

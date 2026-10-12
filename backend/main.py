@@ -6,6 +6,7 @@ Production multi-agent incident response system powered by OpenRouter LLMs.
 from fastapi import FastAPI, HTTPException, Header, Request, Depends, Query
 import os
 import asyncio
+from contextlib import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,15 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import socketio
 
-from config import OPENROUTER_API_KEY, ALLOWED_ORIGINS, APP_STATE_SECRET, PUBLIC_BASE_URL
+from config import (
+    OPENROUTER_API_KEY,
+    ALLOWED_ORIGINS,
+    APP_STATE_SECRET,
+    PUBLIC_BASE_URL,
+    MAX_CONCURRENT_INVESTIGATIONS,
+    INVESTIGATION_QUEUE_WAIT_SECONDS,
+    INVESTIGATION_TIMEOUT_SECONDS,
+)
 from models.schemas import IncidentCreate, IncidentReport
 from agents.orchestrator import Orchestrator
 from db import db
@@ -27,10 +36,19 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from tools.github_app import GitHubAppClient
 
 # ── App Initialisation ──
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    try:
+        yield
+    finally:
+        await db.close()
+
+
 app = FastAPI(
     title="SwarmOps",
     description="Autonomous incident response orchestration via multi-agent swarms.",
     version="0.2.0",
+    lifespan=lifespan,
 )
 
 # ── Rate Limiting ──
@@ -73,7 +91,31 @@ def incident_room(incident_id: str) -> str:
 orchestrator = Orchestrator(sio)
 
 # ── Concurrency Limit ──
-max_concurrent_investigations = asyncio.Semaphore(3)
+max_concurrent_investigations = asyncio.Semaphore(MAX_CONCURRENT_INVESTIGATIONS)
+
+
+async def run_limited_investigation(incident: IncidentCreate, api_key: str, owner_id: str):
+    try:
+        await asyncio.wait_for(
+            max_concurrent_investigations.acquire(), timeout=INVESTIGATION_QUEUE_WAIT_SECONDS
+        )
+    except asyncio.TimeoutError as exc:
+        retry_after = max(1, int(INVESTIGATION_QUEUE_WAIT_SECONDS))
+        raise HTTPException(
+            status_code=429,
+            detail="Investigation capacity is busy. Retry after the indicated delay.",
+            headers={"Retry-After": str(retry_after)},
+        ) from exc
+
+    try:
+        return await asyncio.wait_for(
+            orchestrator.investigate(incident, api_key=api_key, owner_id=owner_id),
+            timeout=INVESTIGATION_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(status_code=504, detail="Investigation exceeded the configured execution deadline.") from exc
+    finally:
+        max_concurrent_investigations.release()
 
 # ── Socket.IO events ──
 @sio.event
@@ -208,15 +250,13 @@ async def create_incident(
         raise HTTPException(status_code=503, detail="LLM provider credentials are not configured.")
         
     try:
-        async with max_concurrent_investigations:
-            report = await orchestrator.investigate(
-                incident, api_key=provider_key, owner_id=user.user_id
-            )
-            # Save to persistent database
-            await db.set(report.incident_id, report)
-            return report
-    except asyncio.TimeoutError:
-         raise HTTPException(status_code=429, detail="Too many concurrent investigations. Please try again later.")
+        report = await run_limited_investigation(incident, provider_key, user.user_id)
+        await db.set(report.incident_id, report)
+        return report
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Investigation could not be completed.") from exc
 
 @app.get("/api/v1/incidents", tags=["incidents"])
 async def list_incidents(

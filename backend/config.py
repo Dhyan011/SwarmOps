@@ -25,6 +25,37 @@ SUPABASE_JWT_SECRET: str = os.getenv("SUPABASE_JWT_SECRET", "")
 SUPABASE_JWT_AUDIENCE: str = os.getenv("SUPABASE_JWT_AUDIENCE", "authenticated")
 DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 APP_ENV: str = os.getenv("APP_ENV", "development")
+
+
+def _bounded_number(name: str, default: str, *, minimum: float, maximum: float) -> float:
+    try:
+        value = float(os.getenv(name, default))
+    except ValueError as exc:
+        raise ValueError(f"{name} must be numeric.") from exc
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} is outside the allowed range.")
+    return value
+
+
+def _bounded_integer(name: str, default: str, *, minimum: int, maximum: int) -> int:
+    try:
+        value = int(os.getenv(name, default))
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer.") from exc
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} is outside the allowed range.")
+    return value
+
+
+MAX_CONCURRENT_INVESTIGATIONS: int = _bounded_integer(
+    "MAX_CONCURRENT_INVESTIGATIONS", "3", minimum=1, maximum=100
+)
+INVESTIGATION_QUEUE_WAIT_SECONDS: float = _bounded_number(
+    "INVESTIGATION_QUEUE_WAIT_SECONDS", "5", minimum=0.1, maximum=300
+)
+INVESTIGATION_TIMEOUT_SECONDS: float = _bounded_number(
+    "INVESTIGATION_TIMEOUT_SECONDS", "900", minimum=5, maximum=3600
+)
 _default_origins = (
     "" if APP_ENV.lower() == "production"
     else "http://localhost:5173,http://127.0.0.1:5173"

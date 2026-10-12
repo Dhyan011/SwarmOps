@@ -107,7 +107,8 @@ class IncidentDB:
     async def health(self) -> bool:
         sessions = self._session_factory()
         async with sessions() as session:
-            await session.execute(text("SELECT 1"))
+            # Fail readiness if connectivity exists but the required migrations were not applied.
+            await session.execute(select(IncidentRecord.id).limit(1))
         return True
 
     async def get_all(self, owner_id: str, limit: int = 100, offset: int = 0) -> list[IncidentReport]:

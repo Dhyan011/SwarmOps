@@ -28,6 +28,12 @@ services:
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         sync: false
+      - key: MAX_CONCURRENT_INVESTIGATIONS
+        value: "3"
+      - key: INVESTIGATION_QUEUE_WAIT_SECONDS
+        value: "5"
+      - key: INVESTIGATION_TIMEOUT_SECONDS
+        value: "900"
 
   # Vite frontend; public Supabase anon key is intentionally a build-time public value.
   - type: web

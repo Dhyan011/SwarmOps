@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi import HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from db import AuditEvent, Base, IncidentDB
@@ -35,6 +36,23 @@ async def test_database_requires_explicit_url():
     with pytest.raises(HTTPException) as error:
         await store.get_all(owner_id="user-a")
     assert error.value.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_database_readiness_detects_missing_migrations(tmp_path):
+    url = f"sqlite+aiosqlite:///{tmp_path / 'readiness.db'}"
+    store = IncidentDB(database_url=url)
+    with pytest.raises(OperationalError):
+        await store.health()
+    await store.close()
+
+    engine = create_async_engine(url)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    await engine.dispose()
+    migrated = IncidentDB(database_url=url)
+    assert await migrated.health() is True
+    await migrated.close()
 
 
 @pytest.mark.asyncio
