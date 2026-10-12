@@ -4,6 +4,7 @@ openai
 python-dotenv
 python-socketio
 httpx
+aiohttp>=3.10,<4
 python-multipart
 slowapi
 PyJWT[crypto]>=2.8,<3
