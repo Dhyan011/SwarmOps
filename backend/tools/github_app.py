@@ -68,6 +68,8 @@ class GitHubAppClient:
                     raise HTTPException(status_code=502, detail="GitHub rejected the configured installation permissions.")
                 if response.status_code == 404:
                     raise HTTPException(status_code=404, detail="GitHub resource was not found or is not accessible.")
+                if response.status_code == 410:
+                    raise HTTPException(status_code=409, detail="Issues are disabled in this GitHub repository.")
                 if response.status_code == 422:
                     raise HTTPException(status_code=409, detail="GitHub rejected this remediation request.")
                 if response.status_code == 429:
@@ -110,7 +112,12 @@ class GitHubAppClient:
             raise HTTPException(status_code=422, detail="Invalid GitHub repository scope.")
         payload = {"repository_ids": repository_ids} if repository_ids is not None else {}
         if permissions is not None:
-            allowed = {"metadata": {"read"}, "contents": {"read", "write"}, "pull_requests": {"read", "write"}}
+            allowed = {
+                "metadata": {"read"},
+                "contents": {"read", "write"},
+                "pull_requests": {"read", "write"},
+                "issues": {"read", "write"},
+            }
             if not permissions or any(key not in allowed or value not in allowed[key] for key, value in permissions.items()):
                 raise HTTPException(status_code=422, detail="Invalid GitHub permission scope.")
             payload["permissions"] = permissions
@@ -140,7 +147,14 @@ class GitHubAppClient:
                 return repositories
         raise HTTPException(status_code=413, detail="Installation contains too many repositories to validate safely.")
 
-    async def token_for_repository(self, owner_id: str, repo_owner: str, repo_name: str, store) -> str:
+    async def token_for_repository(
+        self,
+        owner_id: str,
+        repo_owner: str,
+        repo_name: str,
+        store,
+        permission_scope: dict[str, str] | None = None,
+    ) -> str:
         connections = await store.get_repository_connections(owner_id)
         for connection in connections:
             installation_id = connection["installation_id"]
@@ -159,7 +173,9 @@ class GitHubAppClient:
                 return await self.installation_token(
                     installation_id,
                     repository_ids=[repository_id],
-                    permissions={"metadata": "read", "contents": "write", "pull_requests": "write"},
+                    permissions=permission_scope or {
+                        "metadata": "read", "contents": "write", "pull_requests": "write"
+                    },
                 )
         raise HTTPException(status_code=403, detail="No linked GitHub App installation can access this repository.")
 

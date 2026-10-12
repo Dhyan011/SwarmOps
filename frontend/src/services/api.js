@@ -23,5 +23,8 @@ export const handleIncidentAction = (id, action) => api.post(`/api/v1/incidents/
 export const getHealth = () => api.get("/health");
 export const getGitHubInstallations = () => api.get("/api/v1/github/installations");
 export const startGitHubInstallation = () => api.post("/api/v1/github/install-url");
+export const scanPublicRepository = (repositoryUrl) => api.post("/api/v1/contributions/scan", { repository_url: repositoryUrl });
+export const getContributionScan = (id) => api.get(`/api/v1/contributions/${id}`);
+export const publishContribution = (id, payload) => api.post(`/api/v1/contributions/${id}/publish`, payload);
 
 export default api;

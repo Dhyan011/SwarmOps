@@ -149,3 +149,42 @@ async def test_pr_creation_claim_is_atomic_audited_and_recovers_after_timeout(tm
     assert len(events) == 2
     assert all(event.action == "github_pr_create" and event.outcome == "started" for event in events)
     await store.close()
+
+
+@pytest.mark.asyncio
+async def test_contribution_scan_is_owner_scoped_and_publication_claim_is_retryable(tmp_path):
+    url = f"sqlite+aiosqlite:///{tmp_path / 'contributions.db'}"
+    engine = create_async_engine(url)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    await engine.dispose()
+
+    scan_id = "12345678-1234-1234-1234-123456789abc"
+    store = IncidentDB(database_url=url)
+    result = {"status": "ready", "summary": "A concrete proposal", "candidate": {"publication_allowed": True}}
+    await store.save_contribution_scan(
+        scan_id=scan_id,
+        owner_id="user-a",
+        repository="acme/project",
+        target_url="https://github.com/acme/project",
+        default_branch="main",
+        source_sha="a" * 40,
+        result_json=result,
+    )
+    assert (await store.get_contribution_scan(scan_id, "user-a"))["result"] == result
+    assert await store.get_contribution_scan(scan_id, "user-b") is None
+
+    await store.claim_contribution_publication(scan_id=scan_id, owner_id="user-a")
+    with pytest.raises(HTTPException) as error:
+        await store.claim_contribution_publication(scan_id=scan_id, owner_id="user-a")
+    assert error.value.status_code == 409
+
+    partial = {**result, "publication": {"status": "pr_created_issue_failed"}}
+    await store.update_contribution_scan(
+        scan_id=scan_id, owner_id="user-a", status="pr_created_issue_failed", result_json=partial
+    )
+    persisted = await store.get_contribution_scan(scan_id, "user-a")
+    assert persisted["status"] == "pr_created_issue_failed"
+    assert persisted["result"]["publication"]["status"] == "pr_created_issue_failed"
+    await store.claim_contribution_publication(scan_id=scan_id, owner_id="user-a")
+    await store.close()

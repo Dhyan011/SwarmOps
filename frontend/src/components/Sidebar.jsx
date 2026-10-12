@@ -1,11 +1,12 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { HiArrowRightOnRectangle, HiOutlineBolt, HiOutlineSquares2X2, HiOutlineCog6Tooth } from "react-icons/hi2";
+import { HiArrowRightOnRectangle, HiOutlineBolt, HiOutlineSquares2X2, HiOutlineCog6Tooth, HiOutlineCodeBracket } from "react-icons/hi2";
 import { supabase } from "../services/supabase";
 
 const navItems = [
   { to: "/dashboard", icon: HiOutlineSquares2X2, label: "Investigations" },
   { to: "/new-incident", icon: HiOutlineBolt, label: "New investigation" },
+  { to: "/contribute", icon: HiOutlineCodeBracket, label: "Contributions" },
   { to: "/settings", icon: HiOutlineCog6Tooth, label: "Settings" },
 ];
 

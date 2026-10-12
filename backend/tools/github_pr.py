@@ -223,7 +223,9 @@ def _verified_pr_response(data: object, owner: str, repo: str) -> tuple[str, int
 
 async def create_github_pr(
     *, target_url: str, target_branch: str, patch_content: str, incident_id: str,
-    title: str, description: str, owner_id: str, store, app_client: GitHubAppClient | None = None,
+    title: str, description: str, owner_id: str, store,
+    app_client: GitHubAppClient | None = None, expected_base_sha: str | None = None,
+    branch_prefix: str = "swarmops-fix",
 ) -> dict[str, object]:
     """Create a PR only after applying a context-verified patch to an authorized repository."""
     from security_policy import evaluate_patch
@@ -248,53 +250,96 @@ async def create_github_pr(
         raise HTTPException(status_code=502, detail="GitHub returned invalid base revision metadata.")
 
     safe_incident = re.sub(r"[^A-Za-z0-9-]", "-", incident_id)[:70]
-    branch_name = f"swarmops-fix-{safe_incident}"
+    if branch_prefix not in {"swarmops-fix", "swarmops-contribution"}:
+        raise HTTPException(status_code=422, detail="Invalid pull request branch prefix.")
+    branch_name = f"{branch_prefix}-{safe_incident}"
     existing = await github._request(
         "GET", f"{repo_path}/pulls", token,
         params={"state": "open", "head": f"{repo_owner}:{branch_name}", "base": base_branch},
     )
-    if isinstance(existing, list) and existing:
+    if not isinstance(existing, list):
+        raise HTTPException(status_code=502, detail="GitHub could not verify whether this pull request already exists.")
+    if existing:
         pr = existing[0]
         verified_pr = _verified_pr_response(pr, repo_owner, repo_name)
         if verified_pr:
             return {"url": verified_pr[0], "number": verified_pr[1], "branch": branch_name, "base_sha": base_sha, "idempotent": True}
 
-    await github._request(
-        "POST", f"{repo_path}/git/refs", token,
-        json_body={"ref": f"refs/heads/{branch_name}", "sha": base_sha},
-    )
-    for file_patch in file_patches:
-        content_data = await github._request(
-            "GET", f"{repo_path}/contents/{quote(file_patch.path, safe='/')}", token,
-            params={"ref": branch_name},
-        )
-        if content_data.get("type") != "file" or content_data.get("encoding") != "base64":
-            raise HTTPException(status_code=422, detail="Patch target must be an existing text file.")
-        try:
-            current = base64.b64decode(content_data["content"], validate=True).decode("utf-8")
-            updated = apply_file_patch(current, file_patch)
-        except (KeyError, ValueError, UnicodeDecodeError) as exc:
-            raise HTTPException(status_code=409, detail="Patch does not apply cleanly to the authorized base revision.") from exc
-        await github._request(
-            "PUT", f"{repo_path}/contents/{quote(file_patch.path, safe='/')}", token,
-            json_body={
-                "message": f"Prepare SwarmOps remediation for {incident_id}",
-                "content": base64.b64encode(updated.encode("utf-8")).decode("ascii"),
-                "sha": content_data.get("sha"),
-                "branch": branch_name,
-            },
+    if expected_base_sha and base_sha.casefold() != expected_base_sha.casefold():
+        raise HTTPException(
+            status_code=409,
+            detail="The repository default branch changed after this scan. Rescan before creating a pull request.",
         )
 
-    pr_data = await github._request(
-        "POST", f"{repo_path}/pulls", token,
-        json_body={
-            "title": title[:240],
-            "body": description[:60000],
-            "head": branch_name,
-            "base": base_branch,
-        },
-    )
-    verified_pr = _verified_pr_response(pr_data, repo_owner, repo_name)
-    if not verified_pr:
-        raise HTTPException(status_code=502, detail="GitHub did not confirm pull request creation.")
-    return {"url": verified_pr[0], "number": verified_pr[1], "branch": branch_name, "base_sha": base_sha, "idempotent": False}
+    branch_created = False
+    try:
+        await github._request(
+            "POST", f"{repo_path}/git/refs", token,
+            json_body={"ref": f"refs/heads/{branch_name}", "sha": base_sha},
+        )
+        branch_created = True
+        for file_patch in file_patches:
+            content_data = await github._request(
+                "GET", f"{repo_path}/contents/{quote(file_patch.path, safe='/')}", token,
+                params={"ref": branch_name},
+            )
+            if content_data.get("type") != "file" or content_data.get("encoding") != "base64":
+                raise HTTPException(status_code=422, detail="Patch target must be an existing text file.")
+            try:
+                current = base64.b64decode(content_data["content"], validate=True).decode("utf-8")
+                updated = apply_file_patch(current, file_patch)
+            except (KeyError, ValueError, UnicodeDecodeError) as exc:
+                raise HTTPException(status_code=409, detail="Patch does not apply cleanly to the authorized base revision.") from exc
+            await github._request(
+                "PUT", f"{repo_path}/contents/{quote(file_patch.path, safe='/')}", token,
+                json_body={
+                    "message": f"Prepare SwarmOps remediation for {incident_id}",
+                    "content": base64.b64encode(updated.encode("utf-8")).decode("ascii"),
+                    "sha": content_data.get("sha"),
+                    "branch": branch_name,
+                },
+            )
+
+        pr_data = await github._request(
+            "POST", f"{repo_path}/pulls", token,
+            json_body={
+                "title": title[:240],
+                "body": description[:60000],
+                "head": branch_name,
+                "base": base_branch,
+            },
+        )
+        verified_pr = _verified_pr_response(pr_data, repo_owner, repo_name)
+        if not verified_pr:
+            raise HTTPException(status_code=502, detail="GitHub did not confirm pull request creation.")
+        return {"url": verified_pr[0], "number": verified_pr[1], "branch": branch_name, "base_sha": base_sha, "idempotent": False}
+    except Exception as exc:
+        if branch_created:
+            try:
+                # Do not delete a branch if GitHub may have created the PR before a timeout.
+                prs = await github._request(
+                    "GET", f"{repo_path}/pulls", token,
+                    params={"state": "open", "head": f"{repo_owner}:{branch_name}", "base": base_branch},
+                )
+                if not isinstance(prs, list) or any(
+                    not isinstance(pr, dict) or not isinstance(pr.get("head"), dict)
+                    for pr in prs
+                ):
+                    raise HTTPException(status_code=502, detail="GitHub returned an ambiguous pull request listing.")
+                if isinstance(prs, list) and any(
+                    pr["head"].get("ref") == branch_name
+                    for pr in prs
+                ):
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"GitHub may have created a pull request for branch {branch_name}; inspect GitHub before retrying.",
+                    )
+                await github._request("DELETE", f"{repo_path}/git/refs/heads/{quote(branch_name, safe='/')}", token)
+            except Exception as cleanup_error:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"GitHub publication failed and the outcome or branch cleanup is uncertain for {branch_name}; inspect GitHub before retrying.",
+                ) from cleanup_error
+        if isinstance(exc, HTTPException):
+            raise
+        raise HTTPException(status_code=502, detail="GitHub publication failed; no success was recorded.") from exc

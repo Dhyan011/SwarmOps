@@ -105,3 +105,32 @@ async def test_repository_access_returns_single_repository_scoped_token():
         ("12345", None, {"metadata": "read"}),
         ("12345", [98765], {"metadata": "read", "contents": "write", "pull_requests": "write"}),
     ]
+
+
+@pytest.mark.asyncio
+async def test_repository_issue_token_has_issues_write_without_contents_write():
+    class FakeApp(GitHubAppClient):
+        def __init__(self):
+            self.issued = []
+
+        async def installation_token(self, installation_id, repository_ids=None, permissions=None):
+            self.issued.append((repository_ids, permissions))
+            return "listing-token" if repository_ids is None else "issue-token"
+
+        async def installation_repositories(self, token):
+            return [{"id": 98765, "full_name": "acme/project"}]
+
+    class FakeStore:
+        async def get_repository_connections(self, owner_id):
+            return [{"installation_id": "12345"}]
+
+    client = FakeApp()
+    token = await client.token_for_repository(
+        "user-a", "acme", "project", FakeStore(),
+        permission_scope={"metadata": "read", "issues": "write"},
+    )
+    assert token == "issue-token"
+    assert client.issued == [
+        (None, {"metadata": "read"}),
+        ([98765], {"metadata": "read", "issues": "write"}),
+    ]

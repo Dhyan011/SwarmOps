@@ -117,9 +117,93 @@ async def test_github_pr_workflow_updates_only_authorized_existing_file():
         owner_id="user-a",
         store=object(),
         app_client=github,
+        expected_base_sha="a" * 40,
+        branch_prefix="swarmops-contribution",
     )
     assert result["url"] == "https://github.com/acme/project/pull/7"
     assert result["number"] == 7
+    assert result["branch"].startswith("swarmops-contribution-")
     put_call = next(call for call in github.calls if call[0] == "PUT")
     assert base64.b64decode(put_call[2]["content"]).decode() == "return True\n"
     assert not any("patch_" in call[1] for call in github.calls)
+
+
+@pytest.mark.asyncio
+async def test_stale_contribution_snapshot_is_rejected_before_branch_creation():
+    from tools.github_pr import create_github_pr
+
+    class FakeGitHub:
+        async def token_for_repository(self, *args):
+            return "scoped-token"
+
+        async def _request(self, method, path, token, *, json_body=None, params=None):
+            if method == "GET" and path == "/repos/acme/project":
+                return {"full_name": "acme/project", "default_branch": "main"}
+            if method == "GET" and path == "/repos/acme/project/git/ref/heads/main":
+                return {"object": {"sha": "b" * 40}}
+            if method == "GET" and path == "/repos/acme/project/pulls":
+                return []
+            raise AssertionError(f"unexpected GitHub write: {method} {path}")
+
+    with pytest.raises(HTTPException) as error:
+        await create_github_pr(
+            target_url="https://github.com/acme/project",
+            target_branch="main",
+            patch_content="--- a/src/example.py\n+++ b/src/example.py\n@@ -1 +1 @@\n-return False\n+return True\n",
+            incident_id="contribution-123",
+            title="Fix safely",
+            description="A bounded fix",
+            owner_id="user-a",
+            store=object(),
+            app_client=FakeGitHub(),
+            expected_base_sha="a" * 40,
+            branch_prefix="swarmops-contribution",
+        )
+    assert error.value.status_code == 409
+    assert "changed after this scan" in error.value.detail
+
+
+@pytest.mark.asyncio
+async def test_failed_patch_publication_removes_orphan_branch():
+    from tools.github_pr import create_github_pr
+
+    class FakeGitHub:
+        def __init__(self):
+            self.calls = []
+
+        async def token_for_repository(self, *args):
+            return "scoped-token"
+
+        async def _request(self, method, path, token, *, json_body=None, params=None):
+            self.calls.append((method, path, params))
+            if method == "GET" and path == "/repos/acme/project":
+                return {"full_name": "acme/project", "default_branch": "main"}
+            if method == "GET" and path == "/repos/acme/project/git/ref/heads/main":
+                return {"object": {"sha": "a" * 40}}
+            if method == "GET" and path == "/repos/acme/project/pulls":
+                return []
+            if method == "POST" and path == "/repos/acme/project/git/refs":
+                return {"ref": json_body["ref"]}
+            if method == "GET" and "/contents/" in path:
+                return {"type": "symlink", "encoding": "none"}
+            if method == "DELETE" and path.endswith("/git/refs/heads/swarmops-contribution-contribution-123"):
+                return {}
+            raise AssertionError(f"unexpected GitHub call: {method} {path}")
+
+    github = FakeGitHub()
+    with pytest.raises(HTTPException) as error:
+        await create_github_pr(
+            target_url="https://github.com/acme/project",
+            target_branch="main",
+            patch_content="--- a/src/example.py\n+++ b/src/example.py\n@@ -1 +1 @@\n-return False\n+return True\n",
+            incident_id="contribution-123",
+            title="Fix safely",
+            description="A bounded fix",
+            owner_id="user-a",
+            store=object(),
+            app_client=github,
+            expected_base_sha="a" * 40,
+            branch_prefix="swarmops-contribution",
+        )
+    assert error.value.status_code == 422
+    assert any(call[0] == "DELETE" for call in github.calls)

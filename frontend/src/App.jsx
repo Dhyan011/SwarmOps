@@ -11,6 +11,8 @@ import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import AuthCallbackPage from "./pages/AuthCallbackPage";
 import SettingsPage from "./pages/SettingsPage";
+import ContributePage from "./pages/ContributePage";
+import ContributionReviewPage from "./pages/ContributionReviewPage";
 
 function AuthGuard({ children }) {
   const location = useLocation();
@@ -71,6 +73,8 @@ export default function App() {
                   <Route path="/new-incident" element={<NewIncidentPage />} />
                   <Route path="/incident/:id" element={<IncidentPage />} />
                   <Route path="/report/:id" element={<ReportPage />} />
+                  <Route path="/contribute" element={<ContributePage />} />
+                  <Route path="/contribution/:id" element={<ContributionReviewPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="*" element={<NotFoundPage />} />
                 </Routes>

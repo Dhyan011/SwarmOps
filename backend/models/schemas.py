@@ -82,3 +82,47 @@ class AgentEvent(BaseModel):
     message: str
     timestamp: str
     findings: str = ""
+
+
+class ContributionCandidate(BaseModel):
+    """One concrete, reviewable open-source contribution proposal."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    category: str = Field(min_length=1, max_length=80)
+    priority: Literal["low", "medium", "high", "critical"]
+    confidence: int = Field(ge=0, le=100)
+    issue_title: str = Field(min_length=8, max_length=200)
+    issue_body: str = Field(min_length=1, max_length=8000)
+    pull_request_title: str = Field(min_length=8, max_length=200)
+    pull_request_body: str = Field(min_length=1, max_length=8000)
+    summary: str = Field(min_length=1, max_length=3000)
+    affected_files: list[str] = Field(min_length=1, max_length=10)
+    patch: str = Field(min_length=1, max_length=30000)
+    test_plan: list[str] = Field(min_length=1, max_length=10)
+
+
+class ContributionScanOutput(BaseModel):
+    """Strict scan response; a null candidate means no safe proposal was found."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    summary: str = Field(min_length=1, max_length=3000)
+    candidate: ContributionCandidate | None
+
+
+class ContributionScanRequest(BaseModel):
+    repository_url: str = Field(min_length=1, max_length=500)
+
+
+class ContributionPublishRequest(BaseModel):
+    """Exact user-confirmed GitHub payload; the server still validates the patch."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    confirmed: bool
+    issue_title: str = Field(min_length=8, max_length=200)
+    issue_body: str = Field(min_length=1, max_length=8000)
+    pull_request_title: str = Field(min_length=8, max_length=200)
+    pull_request_body: str = Field(min_length=1, max_length=8000)
+    patch: str = Field(min_length=1, max_length=30000)

@@ -64,3 +64,8 @@ def evaluate_patch(patch: str) -> PolicyResult:
     if any(path.startswith(SENSITIVE_PATH_PREFIXES) for path in paths):
         return PolicyResult("needs_manual_review", ("security_sensitive_path_requires_manual_review",), paths, False)
     return PolicyResult("passed", (), paths, False)
+
+
+def contains_possible_secret(text: str) -> bool:
+    """Return true for common credential patterns in outbound public text."""
+    return any(pattern.search(text) for pattern in SECRET_PATTERNS)

@@ -7,6 +7,8 @@
     { "path": "/new-incident", "title": "New investigation" },
     { "path": "/incident/:id", "title": "Investigation detail" },
     { "path": "/report/:id", "title": "Investigation report" },
+    { "path": "/contribute", "title": "Open-source contribution scanner" },
+    { "path": "/contribution/:id", "title": "Contribution review" },
     { "path": "/settings", "title": "Settings" }
   ]
 }

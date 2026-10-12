@@ -44,6 +44,7 @@ export default function LandingPage() {
         </Link>
         <nav aria-label="Main navigation" className="flex items-center gap-5 text-sm">
           <a href="#how-it-works" className="hidden text-slate-300 hover:text-white sm:inline">How it works</a>
+          <a href="#open-source" className="hidden text-slate-300 hover:text-white md:inline">Open source</a>
           <a href="#security" className="hidden text-slate-300 hover:text-white sm:inline">Security</a>
           <a href="https://github.com/Dhyan011/SwarmOps" target="_blank" rel="noreferrer" className="hidden text-slate-300 hover:text-white md:inline">GitHub</a>
           <Link to="/login" className="rounded-md border border-white/15 px-3.5 py-2 text-slate-100 hover:border-white/30 hover:bg-white/5">Sign in</Link>
@@ -132,6 +133,23 @@ export default function LandingPage() {
                 <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300">{step.body}</p>
               </article>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="open-source" className="scroll-mt-8 border-y border-white/10 bg-[#0c1119]">
+        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div>
+            <p className="text-sm font-medium text-blue-200">Open-source contribution mode</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">A commit-pinned proposal. Your call to publish.</h2>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300">Scan a public GitHub repository for one concrete contribution. Review the source commit, proposed issue, PR description, and complete diff before a security reviewer confirms any GitHub write.</p>
+            <Link to="/contribute" className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-300 px-5 font-semibold text-slate-950 hover:bg-blue-200">Explore contribution mode <HiArrowRight className="h-4 w-4" /></Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <article className="rounded-lg border border-white/10 bg-[#0f151f] p-4"><h3 className="text-sm font-semibold text-white">Read-only scan</h3><p className="mt-2 text-xs leading-5 text-slate-400">Public repository only. Source is bounded, filtered, and pinned to a commit; common secret patterns are redacted before AI analysis.</p></article>
+            <article className="rounded-lg border border-white/10 bg-[#0f151f] p-4"><h3 className="text-sm font-semibold text-white">Exact diff preview</h3><p className="mt-2 text-xs leading-5 text-slate-400">The proposed patch must apply to the scanned source and pass deterministic preflight checks. No code is executed.</p></article>
+            <article className="rounded-lg border border-white/10 bg-[#0f151f] p-4"><h3 className="text-sm font-semibold text-white">Separate GitHub permission</h3><p className="mt-2 text-xs leading-5 text-slate-400">A linked GitHub App needs repository access and issue/PR permissions. Public visibility alone does not authorize writes.</p></article>
+            <article className="rounded-lg border border-white/10 bg-[#0f151f] p-4"><h3 className="text-sm font-semibold text-white">No silent success</h3><p className="mt-2 text-xs leading-5 text-slate-400">SwarmOps reports the verified issue/PR links or a partial outcome. It does not merge, run tests, or claim that a contribution is accepted.</p></article>
           </div>
         </div>
       </section>

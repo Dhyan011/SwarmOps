@@ -70,6 +70,23 @@ class RepositoryConnection(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class ContributionScanRecord(Base):
+    __tablename__ = "contribution_scans"
+    __table_args__ = (Index("ix_contribution_scans_owner_created", "owner_id", "created_at"),)
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    scan_id: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    owner_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    repository: Mapped[str] = mapped_column(String(511), nullable=False)
+    target_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    default_branch: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_sha: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="ready")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    publication_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    result_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+
 class IncidentDB:
     """Database access object with no implicit persistence fallback."""
 
@@ -286,6 +303,104 @@ class IncidentDB:
                 )
             )
             return bool(result.rowcount)
+
+    async def save_contribution_scan(
+        self,
+        *,
+        scan_id: str,
+        owner_id: str,
+        repository: str,
+        target_url: str,
+        default_branch: str,
+        source_sha: str,
+        result_json: dict[str, Any],
+    ) -> None:
+        sessions = self._session_factory()
+        async with sessions() as session, session.begin():
+            session.add(ContributionScanRecord(
+                scan_id=scan_id,
+                owner_id=owner_id,
+                repository=repository,
+                target_url=target_url,
+                default_branch=default_branch,
+                source_sha=source_sha,
+                status=result_json.get("status", "ready"),
+                created_at=datetime.now(timezone.utc),
+                result_json=result_json,
+            ))
+
+    async def get_contribution_scan(self, scan_id: str, owner_id: str) -> dict[str, Any] | None:
+        sessions = self._session_factory()
+        async with sessions() as session:
+            result = await session.execute(
+                select(ContributionScanRecord).where(
+                    ContributionScanRecord.scan_id == scan_id,
+                    ContributionScanRecord.owner_id == owner_id,
+                )
+            )
+            row = result.scalar_one_or_none()
+            if row is None:
+                return None
+            return {
+                "scan_id": row.scan_id,
+                "owner_id": row.owner_id,
+                "repository": row.repository,
+                "target_url": row.target_url,
+                "default_branch": row.default_branch,
+                "source_sha": row.source_sha,
+                "status": row.status,
+                "created_at": row.created_at.isoformat(),
+                "result": row.result_json,
+            }
+
+    async def claim_contribution_publication(self, *, scan_id: str, owner_id: str) -> None:
+        sessions = self._session_factory()
+        now = datetime.now(timezone.utc)
+        async with sessions() as session, session.begin():
+            result = await session.execute(
+                select(ContributionScanRecord)
+                .where(
+                    ContributionScanRecord.scan_id == scan_id,
+                    ContributionScanRecord.owner_id == owner_id,
+                )
+                .with_for_update()
+            )
+            row = result.scalar_one_or_none()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Contribution scan not found.")
+            if row.status == "published":
+                raise HTTPException(status_code=409, detail="This contribution is already published.")
+            if row.status == "publishing" and row.publication_started_at:
+                started_at = row.publication_started_at
+                if started_at.tzinfo is None:
+                    started_at = started_at.replace(tzinfo=timezone.utc)
+                if now - started_at < timedelta(minutes=10):
+                    raise HTTPException(status_code=409, detail="Contribution publication is already in progress.")
+            if row.status not in {"ready", "pr_created_issue_failed", "publishing"}:
+                raise HTTPException(status_code=409, detail="This scan is not eligible for publication.")
+            row.status = "publishing"
+            row.publication_started_at = now
+
+    async def update_contribution_scan(
+        self, *, scan_id: str, owner_id: str, status: str, result_json: dict[str, Any]
+    ) -> None:
+        sessions = self._session_factory()
+        async with sessions() as session, session.begin():
+            result = await session.execute(
+                select(ContributionScanRecord)
+                .where(
+                    ContributionScanRecord.scan_id == scan_id,
+                    ContributionScanRecord.owner_id == owner_id,
+                )
+                .with_for_update()
+            )
+            row = result.scalar_one_or_none()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Contribution scan not found.")
+            row.status = status
+            row.result_json = result_json
+            if status != "publishing":
+                row.publication_started_at = None
 
     async def close(self) -> None:
         if self._engine is not None:

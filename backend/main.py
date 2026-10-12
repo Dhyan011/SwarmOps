@@ -8,7 +8,7 @@ import os
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -24,16 +24,28 @@ from config import (
     INVESTIGATION_QUEUE_WAIT_SECONDS,
     INVESTIGATION_TIMEOUT_SECONDS,
 )
-from models.schemas import IncidentCreate, IncidentReport
+from models.schemas import (
+    ContributionPublishRequest,
+    ContributionScanOutput,
+    ContributionScanRequest,
+    IncidentCreate,
+    IncidentReport,
+)
 from agents.orchestrator import Orchestrator
+from agents.contribution_scanner import ContributionScanner
 from db import db
 
 from datetime import datetime, timezone
+from uuid import UUID, uuid4
 from pydantic import BaseModel
 from typing import Literal
 from auth import Principal, get_current_user, _decode_access_token
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from tools.github_app import GitHubAppClient
+from tools.github_fetcher import fetch_github_repository_snapshot
+from tools.github_issue import create_github_issue
+from tools.github_pr import apply_file_patch, create_github_pr, parse_github_repository, parse_unified_diff
+from security_policy import PolicyResult, contains_possible_secret, evaluate_patch
 
 # ── App Initialisation ──
 @asynccontextmanager
@@ -116,6 +128,32 @@ async def run_limited_investigation(incident: IncidentCreate, api_key: str, owne
         raise HTTPException(status_code=504, detail="Investigation exceeded the configured execution deadline.") from exc
     finally:
         max_concurrent_investigations.release()
+
+
+def validate_contribution_patch(
+    patch: str,
+    source_files: dict[str, str],
+    allowed_paths: set[str] | None = None,
+) -> PolicyResult:
+    """Require an allowed diff to apply cleanly to the exact source snapshot."""
+    policy = evaluate_patch(patch)
+    if policy.state != "passed":
+        return policy
+    try:
+        file_patches = parse_unified_diff(patch)
+        paths = {file_patch.path for file_patch in file_patches}
+        if allowed_paths is not None and paths != allowed_paths:
+            return PolicyResult("needs_manual_review", ("proposal_paths_do_not_match_patch",), tuple(sorted(paths)), False)
+        for file_patch in file_patches:
+            original = source_files.get(file_patch.path)
+            if not isinstance(original, str):
+                return PolicyResult("needs_manual_review", ("patch_target_not_in_scanned_snapshot",), tuple(sorted(paths)), False)
+            updated = apply_file_patch(original, file_patch)
+            if updated == original:
+                return PolicyResult("needs_manual_review", ("patch_has_no_effect",), tuple(sorted(paths)), False)
+    except (TypeError, ValueError):
+        return PolicyResult("needs_manual_review", ("patch_does_not_apply_to_scanned_snapshot",), (), False)
+    return policy
 
 # ── Socket.IO events ──
 @sio.event
@@ -229,6 +267,283 @@ async def remove_github_installation(
     if not removed:
         raise HTTPException(status_code=404, detail="Installation not found.")
     return {"status": "removed"}
+
+
+@app.post("/api/v1/contributions/scan", tags=["contributions"])
+@limiter.limit("3/hour")
+async def scan_public_repository(
+    request: Request,
+    payload: ContributionScanRequest,
+    user: Principal = Depends(get_current_user),
+):
+    """Analyze public GitHub source pinned to one SHA; no write permission is used here."""
+    if not OPENROUTER_API_KEY:
+        raise HTTPException(status_code=503, detail="Repository analysis is not configured.")
+    repo_owner, repo_name = parse_github_repository(payload.repository_url)
+    canonical_url = f"https://github.com/{repo_owner}/{repo_name}"
+    scan_id = str(uuid4())
+    try:
+        snapshot = await fetch_github_repository_snapshot(canonical_url)
+        raw = await ContributionScanner(sio).scan({
+            "api_key": OPENROUTER_API_KEY,
+            "owner_id": user.user_id,
+            "incident_id": scan_id,
+            "phase": "contribution_scan",
+            "repository": snapshot["repository"],
+            "default_branch": snapshot["default_branch"],
+            "source_sha": snapshot["source_sha"],
+            "repository_context": snapshot["context"],
+        })
+        output = ContributionScanOutput.model_validate({key: value for key, value in raw.items() if not key.startswith("_")})
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="The public repository could not be scanned safely.") from exc
+
+    candidate_data = output.candidate.model_dump(mode="json") if output.candidate else None
+    status = "no_safe_candidate"
+    summary = output.summary
+    if candidate_data is not None:
+        public_text = "\n".join([
+            candidate_data["issue_title"], candidate_data["issue_body"],
+            candidate_data["pull_request_title"], candidate_data["pull_request_body"],
+            candidate_data["summary"], candidate_data["patch"],
+            "\n".join(candidate_data["test_plan"]),
+        ])
+        if contains_possible_secret(public_text):
+            candidate_data = None
+            summary = "A credential-like pattern was detected in the generated proposal, so no proposal was saved for publication."
+        else:
+            policy = validate_contribution_patch(
+                candidate_data["patch"],
+                snapshot["source_files"],
+                set(candidate_data["affected_files"]),
+            )
+            candidate_data["patch_policy_state"] = policy.state
+            candidate_data["policy_findings"] = list(policy.findings)
+            candidate_data["publication_allowed"] = policy.state == "passed" and candidate_data["confidence"] >= 80
+            status = "ready" if candidate_data["publication_allowed"] else "review_required"
+
+    result_json = {
+        "status": status,
+        "summary": summary,
+        "repository": snapshot["repository"],
+        "target_url": snapshot["target_url"],
+        "default_branch": snapshot["default_branch"],
+        "source_sha": snapshot["source_sha"],
+        "source_url": snapshot["source_url"],
+        "included_files": snapshot["included_files"],
+        "redactions": snapshot["redactions"],
+        "candidate": candidate_data,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.save_contribution_scan(
+        scan_id=scan_id,
+        owner_id=user.user_id,
+        repository=str(snapshot["repository"]),
+        target_url=str(snapshot["target_url"]),
+        default_branch=str(snapshot["default_branch"]),
+        source_sha=str(snapshot["source_sha"]),
+        result_json=result_json,
+    )
+    return {"scan_id": scan_id, "status": status, "result": result_json}
+
+
+@app.get("/api/v1/contributions/{scan_id}", tags=["contributions"])
+async def get_contribution_scan(scan_id: str, user: Principal = Depends(get_current_user)):
+    try:
+        UUID(scan_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Contribution scan not found.") from exc
+    scan = await db.get_contribution_scan(scan_id, user.user_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Contribution scan not found.")
+    return scan
+
+
+@app.post("/api/v1/contributions/{scan_id}/publish", tags=["contributions"])
+@limiter.limit("5/minute")
+async def publish_contribution(
+    request: Request,
+    scan_id: str,
+    payload: ContributionPublishRequest,
+    user: Principal = Depends(get_current_user),
+):
+    """After explicit reviewer confirmation, create one repository-scoped PR and issue."""
+    if not user.has_any_role({"security_reviewer", "administrator"}):
+        raise HTTPException(status_code=403, detail="A security reviewer or administrator role is required to publish contributions.")
+    if payload.confirmed is not True:
+        raise HTTPException(status_code=400, detail="Explicit publication confirmation is required.")
+    try:
+        UUID(scan_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Contribution scan not found.") from exc
+    scan = await db.get_contribution_scan(scan_id, user.user_id)
+    if scan is None:
+        raise HTTPException(status_code=404, detail="Contribution scan not found.")
+    if scan["status"] == "published":
+        return {"status": "published", **scan["result"].get("publication", {})}
+
+    result_json = dict(scan["result"])
+    candidate = result_json.get("candidate")
+    if not isinstance(candidate, dict) or candidate.get("publication_allowed") is not True:
+        raise HTTPException(status_code=409, detail="This scan has no policy-cleared proposal eligible for publication.")
+    payload_data = payload.model_dump(mode="json")
+    public_text = "\n".join([
+        payload.issue_title, payload.issue_body, payload.pull_request_title,
+        payload.pull_request_body, payload.patch,
+    ])
+    if contains_possible_secret(public_text):
+        raise HTTPException(status_code=422, detail="Remove credential-like content from the public issue and pull-request text.")
+
+    try:
+        snapshot = await fetch_github_repository_snapshot(scan["target_url"])
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="The scanned repository revision could not be re-verified.") from exc
+    if snapshot["source_sha"].casefold() != scan["source_sha"].casefold():
+        raise HTTPException(status_code=409, detail="The repository default branch changed after this scan. Rescan before publishing.")
+    policy = validate_contribution_patch(
+        payload.patch,
+        snapshot["source_files"],
+        set(candidate.get("affected_files", [])),
+    )
+    if policy.state != "passed":
+        raise HTTPException(status_code=409, detail="The edited patch no longer passes source-context and deterministic policy checks.")
+
+    publication = dict(result_json.get("publication") or {})
+    if publication.get("request") is not None and publication["request"] != payload_data:
+        raise HTTPException(status_code=409, detail="A partial publication must be retried with the same confirmed payload. Start a new scan to change it.")
+    if publication.get("pull_request") and publication.get("request") is None:
+        raise HTTPException(status_code=409, detail="The prior publication state cannot be safely resumed. Start a new scan.")
+
+    await db.claim_contribution_publication(scan_id=scan_id, owner_id=user.user_id)
+    await db.append_audit_event(
+        incident_id=f"CONTRIB-{scan_id}", owner_id=user.user_id, actor_id=user.user_id,
+        action="github_contribution_publish", outcome="started", correlation_id=scan_id,
+        detail="Reviewer confirmed publication of a repository contribution.",
+    )
+    publication["request"] = payload_data
+    publication["status"] = "publishing"
+    result_json["publication"] = publication
+    await db.update_contribution_scan(scan_id=scan_id, owner_id=user.user_id, status="publishing", result_json=result_json)
+
+    try:
+        pull_request = publication.get("pull_request")
+        if not isinstance(pull_request, dict):
+            pull_request = await create_github_pr(
+                target_url=scan["target_url"],
+                target_branch=scan["default_branch"],
+                patch_content=payload.patch,
+                incident_id=f"{scan_id}",
+                title=payload.pull_request_title,
+                description=payload.pull_request_body,
+                owner_id=user.user_id,
+                store=db,
+                expected_base_sha=scan["source_sha"],
+                branch_prefix="swarmops-contribution",
+            )
+            publication["pull_request"] = pull_request
+            result_json["publication"] = publication
+            await db.update_contribution_scan(scan_id=scan_id, owner_id=user.user_id, status="publishing", result_json=result_json)
+
+        issue = await create_github_issue(
+            target_url=scan["target_url"],
+            title=payload.issue_title,
+            body=payload.issue_body,
+            scan_id=scan_id,
+            owner_id=user.user_id,
+            store=db,
+            app_client=GitHubAppClient(),
+        )
+        publication["issue"] = issue
+        publication["status"] = "published"
+        publication.pop("issue_error", None)
+        result_json["publication"] = publication
+        result_json["status"] = "published"
+        await db.update_contribution_scan(scan_id=scan_id, owner_id=user.user_id, status="published", result_json=result_json)
+        await db.append_audit_event(
+            incident_id=f"CONTRIB-{scan_id}", owner_id=user.user_id, actor_id=user.user_id,
+            action="github_contribution_publish", outcome="published", correlation_id=scan_id,
+            detail="GitHub confirmed a pull request and issue for the contribution.",
+        )
+        return {"status": "published", "issue": issue, "pull_request": pull_request, "source_sha": scan["source_sha"]}
+    except HTTPException as exc:
+        if publication.get("pull_request"):
+            publication["status"] = "pr_created_issue_failed"
+            publication["issue_error"] = str(exc.detail)
+            result_json["publication"] = publication
+            result_json["status"] = "pr_created_issue_failed"
+            await db.update_contribution_scan(
+                scan_id=scan_id, owner_id=user.user_id, status="pr_created_issue_failed", result_json=result_json
+            )
+            await db.append_audit_event(
+                incident_id=f"CONTRIB-{scan_id}", owner_id=user.user_id, actor_id=user.user_id,
+                action="github_contribution_publish", outcome="partial", correlation_id=scan_id,
+                detail="Pull request exists; issue creation needs retry.",
+            )
+            return JSONResponse(
+                status_code=207,
+                content={
+                    "status": "pr_created_issue_failed",
+                    "message": "The pull request exists, but GitHub did not confirm issue creation. Retry with the same payload after resolving the issue permission or repository setting.",
+                    "issue_error": str(exc.detail),
+                    "pull_request": publication["pull_request"],
+                    "issue": None,
+                    "source_sha": scan["source_sha"],
+                },
+            )
+        result_json["publication"] = {"status": "failed", "error": str(exc.detail)}
+        result_json["status"] = "ready"
+        await db.update_contribution_scan(scan_id=scan_id, owner_id=user.user_id, status="ready", result_json=result_json)
+        await db.append_audit_event(
+            incident_id=f"CONTRIB-{scan_id}", owner_id=user.user_id, actor_id=user.user_id,
+            action="github_contribution_publish", outcome="failed", correlation_id=scan_id,
+            detail="GitHub did not confirm a pull request.",
+        )
+        raise
+    except Exception as exc:
+        # Keep the persisted workflow retryable and never turn an unhandled provider
+        # failure into a success-looking or permanently locked state.
+        if publication.get("pull_request"):
+            publication["status"] = "pr_created_issue_failed"
+            publication["issue_error"] = "GitHub did not confirm issue creation. Inspect the repository before retrying."
+            result_json["publication"] = publication
+            result_json["status"] = "pr_created_issue_failed"
+            await db.update_contribution_scan(
+                scan_id=scan_id, owner_id=user.user_id, status="pr_created_issue_failed", result_json=result_json
+            )
+            await db.append_audit_event(
+                incident_id=f"CONTRIB-{scan_id}", owner_id=user.user_id, actor_id=user.user_id,
+                action="github_contribution_publish", outcome="partial", correlation_id=scan_id,
+                detail="Pull request exists; issue creation outcome needs verification.",
+            )
+            return JSONResponse(
+                status_code=207,
+                content={
+                    "status": "pr_created_issue_failed",
+                    "message": "The pull request exists, but issue creation was not confirmed. Inspect GitHub before retrying with the same payload.",
+                    "issue_error": publication["issue_error"],
+                    "pull_request": publication["pull_request"],
+                    "issue": None,
+                    "source_sha": scan["source_sha"],
+                },
+            )
+        result_json["publication"] = {
+            "status": "failed",
+            "error": "GitHub did not confirm pull request creation. Inspect the repository before retrying.",
+        }
+        result_json["status"] = "ready"
+        await db.update_contribution_scan(scan_id=scan_id, owner_id=user.user_id, status="ready", result_json=result_json)
+        await db.append_audit_event(
+            incident_id=f"CONTRIB-{scan_id}", owner_id=user.user_id, actor_id=user.user_id,
+            action="github_contribution_publish", outcome="failed", correlation_id=scan_id,
+            detail="Unexpected error while verifying the GitHub publication outcome.",
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="GitHub did not confirm the pull request. Inspect the repository before retrying.",
+        ) from exc
+
 
 # ── Incident Endpoints ──
 
