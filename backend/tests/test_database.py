@@ -30,6 +30,13 @@ def report(incident_id="INC-1", owner_id="user-a"):
     )
 
 
+def test_legacy_report_defaults_to_no_retained_evidence():
+    data = report().model_dump(mode="json")
+    data.pop("user_supplied_evidence")
+    restored = IncidentReport.model_validate(data)
+    assert restored.user_supplied_evidence == ""
+
+
 @pytest.mark.asyncio
 async def test_database_requires_explicit_url():
     store = IncidentDB(database_url="")
@@ -64,14 +71,18 @@ async def test_incident_persistence_tenant_scope_and_version(tmp_path):
     await engine.dispose()
 
     first = IncidentDB(database_url=url)
-    await first.set("INC-1", report())
+    original = report()
+    original.user_supplied_evidence = "user-supplied, redacted log line"
+    await first.set("INC-1", original)
     assert (await first.get("INC-1", owner_id="user-a")).incident_id == "INC-1"
+    assert (await first.get("INC-1", owner_id="user-a")).user_supplied_evidence == "user-supplied, redacted log line"
     assert await first.get("INC-1", owner_id="user-b") is None
     assert [item.incident_id for item in await first.get_all("user-a")] == ["INC-1"]
     assert await first.get_all("user-b") == []
 
     updated = report()
     updated.status = "awaiting_review"
+    updated.user_supplied_evidence = original.user_supplied_evidence
     await first.set("INC-1", updated)
     await first.close()
 
@@ -79,6 +90,7 @@ async def test_incident_persistence_tenant_scope_and_version(tmp_path):
     persisted = await reopened.get("INC-1", owner_id="user-a")
     assert persisted is not None
     assert persisted.status == "awaiting_review"
+    assert persisted.user_supplied_evidence == "user-supplied, redacted log line"
     assert await reopened.exists("INC-1")
     await reopened.close()
 

@@ -43,6 +43,7 @@ class IncidentReport(BaseModel):
     confidence: int
     recommended_fix: str
     code_patch: str
+    user_supplied_evidence: str = Field(default="", max_length=50000)
     validation_result: str
     validation_state: Literal[
         "not_validated", "validation_in_progress", "validation_passed",

@@ -254,6 +254,7 @@ class Orchestrator:
             confidence=confidence,
             recommended_fix=fix_result.get("fix_description", "No fix generated"),
             code_patch=fix_result.get("code_patch", ""),
+            user_supplied_evidence=incident.code_snippet,
             validation_result=(
                 validated_output.model_dump_json()
                 if validated_output is not None
