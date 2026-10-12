@@ -42,11 +42,17 @@ class IncidentDB:
         """Legacy sync save, used carefully"""
         self._save()
 
-    def get_all(self):
-        return list(reversed(self.incidents.values()))
+    def get_all(self, owner_id: str | None = None):
+        reports = self.incidents.values()
+        if owner_id is not None:
+            reports = (report for report in reports if report.owner_id == owner_id)
+        return list(reversed(list(reports)))
 
-    def get(self, incident_id: str):
-        return self.incidents.get(incident_id)
+    def get(self, incident_id: str, owner_id: str | None = None):
+        report = self.incidents.get(incident_id)
+        if report is not None and owner_id is not None and report.owner_id != owner_id:
+            return None
+        return report
 
     async def set(self, incident_id: str, report: IncidentReport):
         """Set a report with an async lock and save to disk."""
@@ -69,12 +75,13 @@ class IncidentDB:
             "timestamp": datetime.now(timezone.utc).isoformat()
         })
 
-    def search(self, query: str) -> list:
+    def search(self, query: str, owner_id: str | None = None) -> list:
         """Full-text search across description + root_cause + service."""
         q = query.lower()
         return [
             inc for inc in self.incidents.values()
-            if (q in (inc.description or "").lower()
+            if (owner_id is None or inc.owner_id == owner_id)
+            and (q in (inc.description or "").lower()
                 or q in (inc.root_cause or "").lower()
                 or q in (inc.service or "").lower())
         ]

@@ -29,6 +29,7 @@ class AgentFinding(BaseModel):
 class IncidentReport(BaseModel):
     """Full incident report returned after orchestration completes."""
     incident_id: str
+    owner_id: str = ""
     description: str
     service: str
     severity: str
@@ -42,6 +43,7 @@ class IncidentReport(BaseModel):
     code_patch: str
     validation_result: str
     resolution_time_ms: int
+    target_url: str = ""
 
 
 class AgentEvent(BaseModel):

@@ -3,7 +3,7 @@ SwarmOps — FastAPI Entry Point
 Production multi-agent incident response system powered by OpenRouter LLMs.
 """
 
-from fastapi import FastAPI, HTTPException, Header, Request, Response
+from fastapi import FastAPI, HTTPException, Header, Request, Depends
 import os
 import asyncio
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +21,7 @@ from db import db
 
 from datetime import datetime, timezone
 from pydantic import BaseModel
+from auth import Principal, get_current_user
 
 # ── App Initialisation ──
 app = FastAPI(
@@ -90,18 +91,26 @@ async def health_check():
 
 @app.post("/api/v1/incident", response_model=IncidentReport, tags=["incidents"])
 @limiter.limit("5/minute")
-async def create_incident(request: Request, incident: IncidentCreate, x_api_key: str = Header(None)):
+async def create_incident(
+    request: Request,
+    incident: IncidentCreate,
+    user: Principal = Depends(get_current_user),
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+):
     """
     Triggers the full multi-agent investigation pipeline.
     Streams real-time agent events via Socket.IO while processing.
     Returns the complete IncidentReport once all phases finish.
     """
-    if not x_api_key:
-        raise HTTPException(status_code=401, detail="OpenRouter API Key is required. Please sign in.")
+    provider_key = x_api_key or OPENROUTER_API_KEY
+    if not provider_key:
+        raise HTTPException(status_code=503, detail="LLM provider credentials are not configured.")
         
     try:
         async with max_concurrent_investigations:
-            report = await orchestrator.investigate(incident, api_key=x_api_key)
+            report = await orchestrator.investigate(
+                incident, api_key=provider_key, owner_id=user.user_id
+            )
             # Save to persistent database
             await db.set(report.incident_id, report)
             return report
@@ -109,14 +118,14 @@ async def create_incident(request: Request, incident: IncidentCreate, x_api_key:
          raise HTTPException(status_code=429, detail="Too many concurrent investigations. Please try again later.")
 
 @app.get("/api/v1/incidents", tags=["incidents"])
-async def list_incidents():
+async def list_incidents(user: Principal = Depends(get_current_user)):
     """Returns all stored incidents from the persistent database."""
-    return db.get_all()
+    return db.get_all(owner_id=user.user_id)
 
 @app.get("/api/v1/incidents/{incident_id}", response_model=IncidentReport, tags=["incidents"])
-async def get_incident(incident_id: str):
+async def get_incident(incident_id: str, user: Principal = Depends(get_current_user)):
     """Returns a specific incident by ID."""
-    report = db.get(incident_id)
+    report = db.get(incident_id, owner_id=user.user_id)
     if report is None:
         raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
     return report
@@ -125,8 +134,12 @@ class ActionRequest(BaseModel):
     action: str
 
 @app.post("/api/v1/incidents/{incident_id}/action", tags=["incidents"])
-async def handle_incident_action(incident_id: str, payload: ActionRequest):
-    report = db.get(incident_id)
+async def handle_incident_action(
+    incident_id: str,
+    payload: ActionRequest,
+    user: Principal = Depends(get_current_user),
+):
+    report = db.get(incident_id, owner_id=user.user_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Incident not found")
         
@@ -167,17 +180,6 @@ async def handle_incident_action(incident_id: str, payload: ActionRequest):
     # Update persistent database
     await db.set(incident_id, report)
     return {"status": report.status, "message": message}
-
-# ── GitHub OAuth Endpoints ──
-@app.get("/api/v1/auth/github/login", tags=["auth"])
-async def github_login():
-    """Initiates GitHub OAuth flow."""
-    return {"url": "https://github.com/login/oauth/authorize?client_id=demo"}
-
-@app.get("/api/v1/auth/github/callback", tags=["auth"])
-async def github_callback(code: str):
-    """Handles GitHub OAuth callback."""
-    return {"status": "success", "token": "gho_dummy123456789"}
 
 # ── Serve Frontend ──
 dist_path = os.path.join(os.path.dirname(__file__), "dist")

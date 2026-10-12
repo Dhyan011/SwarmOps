@@ -51,7 +51,7 @@ class Orchestrator:
 
     # ──────────────────────────────────────────────────────────────────
 
-    async def investigate(self, incident: IncidentCreate, api_key: str) -> IncidentReport:
+    async def investigate(self, incident: IncidentCreate, api_key: str, owner_id: str) -> IncidentReport:
         """Run the full 5-phase investigation and return a complete report."""
         incident_id = f"INC-{int(time.time() * 1000)}"
         created_at = datetime.now(timezone.utc).isoformat()
@@ -87,7 +87,7 @@ class Orchestrator:
         }
 
         # ── Pre-Phase: Similar Incident Check ────────────────────────
-        similar = await find_similar_incident(incident.description, incident.service)
+        similar = await find_similar_incident(incident.description, incident.service, owner_id)
         similar_incident_id = ""
         if similar:
             similar_incident_id = similar["incident_id"]
@@ -201,6 +201,7 @@ class Orchestrator:
 
         report = IncidentReport(
             incident_id=incident_id,
+            owner_id=owner_id,
             description=incident.description,
             service=incident.service,
             severity=incident.severity,
@@ -214,6 +215,7 @@ class Orchestrator:
             code_patch=fix_result.get("code_patch", ""),
             validation_result=json.dumps(validation_result) if validation_status == "rejected" else validation_result.get("validation_status", "unknown"),
             resolution_time_ms=resolution_ms,
+            target_url=incident.target_url,
             auto_escalated=auto_escalated,
             similar_incident_id=similar_incident_id,
             pr_title=pr_result.get("pr_title", ""),

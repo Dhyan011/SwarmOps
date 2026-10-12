@@ -16,6 +16,9 @@ OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 LLM_MODEL: str = os.getenv("LLM_MODEL", "openrouter/free")
 GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", "")
+SUPABASE_URL: str = os.getenv("SUPABASE_URL", "").rstrip("/")
+SUPABASE_JWT_SECRET: str = os.getenv("SUPABASE_JWT_SECRET", "")
+SUPABASE_JWT_AUDIENCE: str = os.getenv("SUPABASE_JWT_AUDIENCE", "authenticated")
 
 # ── Azure Log Analytics ──
 AZURE_LOG_ANALYTICS_WORKSPACE_ID: str = os.getenv("AZURE_LOG_ANALYTICS_WORKSPACE_ID", "")

@@ -1,12 +1,12 @@
 from db import db
 import json
 
-async def find_similar_incident(description: str, service: str) -> dict:
+async def find_similar_incident(description: str, service: str, owner_id: str) -> dict:
     """Fuzzy match against past incidents. Returns best match or None."""
     query = description.lower()
     
     # Very simple fuzzy search
-    incidents = db.get_all()
+    incidents = db.get_all(owner_id=owner_id)
     best_match = None
     best_score = 0
     
