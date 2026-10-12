@@ -21,6 +21,17 @@ SUPABASE_JWT_SECRET: str = os.getenv("SUPABASE_JWT_SECRET", "")
 SUPABASE_JWT_AUDIENCE: str = os.getenv("SUPABASE_JWT_AUDIENCE", "authenticated")
 DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 APP_ENV: str = os.getenv("APP_ENV", "development")
+_default_origins = (
+    "" if APP_ENV.lower() == "production"
+    else "http://localhost:5173,http://127.0.0.1:5173"
+)
+ALLOWED_ORIGINS: list[str] = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS", _default_origins,
+    ).split(",")
+    if origin.strip()
+]
 
 # ── Azure Log Analytics ──
 AZURE_LOG_ANALYTICS_WORKSPACE_ID: str = os.getenv("AZURE_LOG_ANALYTICS_WORKSPACE_ID", "")

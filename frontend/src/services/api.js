@@ -8,12 +8,12 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Interceptor to attach the OpenRouter OAuth API Key
+// Application identity and model-provider credentials are separate tokens.
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("openrouter_api_key");
-  if (token) {
-    config.headers["X-API-Key"] = token;
-  }
+  const accessToken = localStorage.getItem("supabase_access_token");
+  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
+  const providerKey = localStorage.getItem("openrouter_api_key");
+  if (providerKey) config.headers["X-API-Key"] = providerKey;
   return config;
 });
 

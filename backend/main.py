@@ -14,14 +14,14 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import socketio
 
-from config import OPENROUTER_API_KEY
+from config import OPENROUTER_API_KEY, ALLOWED_ORIGINS
 from models.schemas import IncidentCreate, IncidentReport
 from agents.orchestrator import Orchestrator
 from db import db
 
 from datetime import datetime, timezone
 from pydantic import BaseModel
-from auth import Principal, get_current_user
+from auth import Principal, get_current_user, _decode_access_token
 
 # ── App Initialisation ──
 app = FastAPI(
@@ -38,12 +38,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # ── CORS ──
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://swarmops-1.onrender.com",
-        "https://swarmops-frontend.onrender.com",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -59,8 +54,17 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 # ── Socket.IO Setup ──
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
+sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=ALLOWED_ORIGINS)
 socket_app = socketio.ASGIApp(sio, app)
+socket_users: dict[str, str] = {}
+
+
+def user_room(user_id: str) -> str:
+    return f"user:{user_id}"
+
+
+def incident_room(incident_id: str) -> str:
+    return f"incident:{incident_id}"
 
 # ── Orchestrator (created once, shared across requests) ──
 orchestrator = Orchestrator(sio)
@@ -70,12 +74,40 @@ max_concurrent_investigations = asyncio.Semaphore(3)
 
 # ── Socket.IO events ──
 @sio.event
-async def connect(sid, environ):
-    print(f"Client connected: {sid}")
+async def connect(sid, environ, auth_payload=None):
+    token = auth_payload.get("token") if isinstance(auth_payload, dict) else None
+    if not token:
+        authorization = environ.get("HTTP_AUTHORIZATION", "")
+        scheme, separator, value = authorization.partition(" ")
+        if separator and scheme.lower() == "bearer":
+            token = value.strip()
+    if not token:
+        return False
+    try:
+        claims = await asyncio.to_thread(_decode_access_token, token)
+    except Exception:
+        return False
+    user_id = claims["sub"]
+    socket_users[sid] = user_id
+    await sio.enter_room(sid, user_room(user_id))
+    return True
+
+
+@sio.on("subscribe_incident")
+async def subscribe_incident(sid, payload):
+    user_id = socket_users.get(sid)
+    incident_id = payload.get("incident_id") if isinstance(payload, dict) else None
+    if not user_id or not isinstance(incident_id, str) or not incident_id.strip():
+        return {"ok": False, "error": "unauthorized"}
+    report = await db.get(incident_id, owner_id=user_id)
+    if report is None:
+        return {"ok": False, "error": "not_found"}
+    await sio.enter_room(sid, incident_room(incident_id))
+    return {"ok": True}
 
 @sio.event
 async def disconnect(sid):
-    print(f"Client disconnected: {sid}")
+    socket_users.pop(sid, None)
 
 # ── Health Check ──
 @app.get("/health", tags=["system"])
@@ -168,7 +200,8 @@ async def handle_incident_action(
             incident_id=incident_id,
             title=f"SwarmOps Fix: {report.description[:50]}",
             description=report.root_cause,
-            sio=sio
+            sio=sio,
+            owner_id=report.owner_id,
         )
         
         # Save patterns to memory
@@ -186,7 +219,7 @@ async def handle_incident_action(
             "message": message,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "findings": ""
-        })
+        }, room=user_room(user.user_id))
     else:
         raise HTTPException(status_code=400, detail="Invalid action")
         

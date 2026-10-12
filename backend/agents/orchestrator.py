@@ -68,7 +68,7 @@ class Orchestrator:
                 "message": f"Fetching context from {incident.target_url}...",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "findings": "",
-            })
+            }, room=f"user:{owner_id}")
             url_context = await fetch_url_context(incident.target_url, getattr(incident, "analysis_mode", "standard"))
 
         phases: list[dict] = []
@@ -77,6 +77,7 @@ class Orchestrator:
         # Base context shared with every agent
         context: dict = {
             "api_key": api_key,
+            "owner_id": owner_id,
             "incident_id": incident_id,
             "description": incident.description,
             "service": incident.service,
@@ -91,18 +92,18 @@ class Orchestrator:
         similar_incident_id = ""
         if similar:
             similar_incident_id = similar["incident_id"]
-            await self._emit_phase(incident_id, "pre_triage", "completed", f"Found similar past incident: {similar_incident_id}")
+            await self._emit_phase(incident_id, "pre_triage", "completed", f"Found similar past incident: {similar_incident_id}", owner_id)
             context["similar_incident"] = similar
             
         # ── Pre-Phase: Memory Injection ──────────────────────────────
         past_patterns = memory_store.get_past_patterns(incident.service)
         if past_patterns:
             context["past_patterns"] = past_patterns
-            await self._emit_phase(incident_id, "memory", "completed", f"Injected {len(past_patterns)} past patterns for {incident.service}")
+            await self._emit_phase(incident_id, "memory", "completed", f"Injected {len(past_patterns)} past patterns for {incident.service}", owner_id)
 
         # ── Phase 1: Triage ───────────────────────────────────────────
         context["phase"] = "triage"
-        await self._emit_phase(incident_id, "triage", "started", "Triage phase initiated")
+        await self._emit_phase(incident_id, "triage", "started", "Triage phase initiated", owner_id)
         triage_result = await self.triage_agent.run(context)
         phases.append({"phase": "triage", "status": "completed", "result": triage_result})
         agent_findings.append(self._to_finding(self.triage_agent, triage_result))
@@ -110,14 +111,14 @@ class Orchestrator:
         
         if "error" in triage_result:
             error_msg = triage_result["error"]
-            await self._emit_phase(incident_id, "triage", "failed", f"Investigation aborted due to API error: {error_msg}")
+            await self._emit_phase(incident_id, "triage", "failed", f"Investigation aborted due to API error: {error_msg}", owner_id)
             raise HTTPException(status_code=429, detail=f"OpenRouter API limit or error encountered: {error_msg}")
 
-        await self._emit_phase(incident_id, "triage", "completed", "Triage phase completed")
+        await self._emit_phase(incident_id, "triage", "completed", "Triage phase completed", owner_id)
 
         # ── Phase 2: Parallel Investigation ───────────────────────────
         context["phase"] = "investigation"
-        await self._emit_phase(incident_id, "investigation", "started", "Investigation phase initiated — 4 agents running in parallel")
+        await self._emit_phase(incident_id, "investigation", "started", "Investigation phase initiated — 4 agents running in parallel", owner_id)
 
         log_res, metrics_res, trace_res, sec_res = await asyncio.gather(
             self.log_analyzer.run(context),
@@ -140,59 +141,59 @@ class Orchestrator:
             self._to_finding(self.security_agent, sec_res),
         ])
         context["investigation_findings"] = investigation_results
-        await self._emit_phase(incident_id, "investigation", "completed", "Investigation phase completed")
+        await self._emit_phase(incident_id, "investigation", "completed", "Investigation phase completed", owner_id)
 
         # ── Phase 3: Root Cause ───────────────────────────────────────
         context["phase"] = "root_cause"
-        await self._emit_phase(incident_id, "root_cause", "started", "Root cause analysis initiated")
+        await self._emit_phase(incident_id, "root_cause", "started", "Root cause analysis initiated", owner_id)
         root_cause_result = await self.root_cause_agent.run(context)
         phases.append({"phase": "root_cause", "status": "completed", "result": root_cause_result})
         agent_findings.append(self._to_finding(self.root_cause_agent, root_cause_result))
         context["root_cause"] = root_cause_result
-        await self._emit_phase(incident_id, "root_cause", "completed", "Root cause analysis completed")
+        await self._emit_phase(incident_id, "root_cause", "completed", "Root cause analysis completed", owner_id)
         
         confidence = self._parse_confidence(root_cause_result.get("confidence", 0))
         auto_escalated = False
         if confidence < 50:
             auto_escalated = True
-            await self._emit_phase(incident_id, "root_cause", "warning", f"Confidence is low ({confidence}%). Auto-escalating incident.")
+            await self._emit_phase(incident_id, "root_cause", "warning", f"Confidence is low ({confidence}%). Auto-escalating incident.", owner_id)
 
         # ── Phase 4: Fix Generation ───────────────────────────────────
         context["phase"] = "fix_generation"
-        await self._emit_phase(incident_id, "fix_generation", "started", "Fix generation initiated")
+        await self._emit_phase(incident_id, "fix_generation", "started", "Fix generation initiated", owner_id)
         fix_result = await self.fix_generator.run(context)
         phases.append({"phase": "fix_generation", "status": "completed", "result": fix_result})
         agent_findings.append(self._to_finding(self.fix_generator, fix_result))
         context["proposed_fix"] = fix_result
-        await self._emit_phase(incident_id, "fix_generation", "completed", "Fix generation completed")
+        await self._emit_phase(incident_id, "fix_generation", "completed", "Fix generation completed", owner_id)
 
         # ── Phase 4.5: Test Generation ────────────────────────────────
         context["phase"] = "test_generation"
-        await self._emit_phase(incident_id, "test_generation", "started", "Test generation initiated")
+        await self._emit_phase(incident_id, "test_generation", "started", "Test generation initiated", owner_id)
         test_result = await self.test_generator.run(context)
         phases.append({"phase": "test_generation", "status": "completed", "result": test_result})
         agent_findings.append(self._to_finding(self.test_generator, test_result))
         context["tests"] = test_result
-        await self._emit_phase(incident_id, "test_generation", "completed", "Test generation completed")
+        await self._emit_phase(incident_id, "test_generation", "completed", "Test generation completed", owner_id)
 
         # ── Phase 5: Validation ───────────────────────────────────────
         context["phase"] = "validation"
-        await self._emit_phase(incident_id, "validation", "started", "Validation phase initiated")
+        await self._emit_phase(incident_id, "validation", "started", "Validation phase initiated", owner_id)
         validation_result = await self.validation_agent.run(context)
         phases.append({"phase": "validation", "status": "completed", "result": validation_result})
         agent_findings.append(self._to_finding(self.validation_agent, validation_result))
-        await self._emit_phase(incident_id, "validation", "completed", "Validation phase completed")
+        await self._emit_phase(incident_id, "validation", "completed", "Validation phase completed", owner_id)
 
         validation_status = validation_result.get("validation_status", "approved")
 
         if validation_status != "rejected":
             # ── Phase 6: PR Composer ──────────────────────────────────────
             context["phase"] = "pr_composer"
-            await self._emit_phase(incident_id, "pr_composer", "started", "PR composing initiated")
+            await self._emit_phase(incident_id, "pr_composer", "started", "PR composing initiated", owner_id)
             pr_result = await self.pr_composer.run(context)
             phases.append({"phase": "pr_composer", "status": "completed", "result": pr_result})
             agent_findings.append(self._to_finding(self.pr_composer, pr_result))
-            await self._emit_phase(incident_id, "pr_composer", "completed", "PR composing completed")
+            await self._emit_phase(incident_id, "pr_composer", "completed", "PR composing completed", owner_id)
         else:
             pr_result = {}
 
@@ -230,10 +231,10 @@ class Orchestrator:
                 "incident_id": incident_id,
                 "status": "validation_failed",
                 "message": "Validation agent rejected the fix. Review findings before proceeding."
-            })
+            }, room=f"user:{owner_id}")
             return report
 
-        await self.sio.emit("investigation_complete", report.model_dump())
+        await self.sio.emit("investigation_complete", report.model_dump(), room=f"user:{owner_id}")
         return report
 
     # ── Helpers ────────────────────────────────────────────────────────
@@ -250,7 +251,7 @@ class Orchestrator:
         except (ValueError, TypeError):
             return 0
 
-    async def _emit_phase(self, incident_id: str, phase: str, status: str, message: str):
+    async def _emit_phase(self, incident_id: str, phase: str, status: str, message: str, owner_id: str):
         await self.sio.emit("agent_event", {
             "incident_id": incident_id,
             "agent": "Orchestrator",
@@ -259,7 +260,7 @@ class Orchestrator:
             "message": message,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "findings": "",
-        })
+        }, room=f"user:{owner_id}")
 
     @staticmethod
     def _to_finding(agent, result: dict) -> AgentFinding:

@@ -5,7 +5,7 @@ import asyncio
 from urllib.parse import urlparse
 from config import GITHUB_TOKEN
 
-async def create_github_pr(target_url: str, patch_content: str, incident_id: str, title: str, description: str, sio) -> str:
+async def create_github_pr(target_url: str, patch_content: str, incident_id: str, title: str, description: str, sio, owner_id: str) -> str:
     """
     Creates a Pull Request using the GitHub REST API.
     Steps:
@@ -21,7 +21,7 @@ async def create_github_pr(target_url: str, patch_content: str, incident_id: str
         "status": "in_progress",
         "message": f"Starting GitHub PR workflow via REST API...",
         "timestamp": ""
-    })
+    }, room=f"user:{owner_id}")
 
     if not GITHUB_TOKEN:
         await asyncio.sleep(1)
@@ -56,7 +56,7 @@ async def create_github_pr(target_url: str, patch_content: str, incident_id: str
             await sio.emit("agent_event", {
                 "incident_id": incident_id, "agent": "System (Deployment)", "phase": "action",
                 "status": "in_progress", "message": f"Creating branch {branch_name}...", "timestamp": ""
-            })
+            }, room=f"user:{owner_id}")
             res = await client.post(
                 f"{base_api}/git/refs", headers=headers,
                 json={"ref": f"refs/heads/{branch_name}", "sha": base_sha}
@@ -72,7 +72,7 @@ async def create_github_pr(target_url: str, patch_content: str, incident_id: str
             await sio.emit("agent_event", {
                 "incident_id": incident_id, "agent": "System (Deployment)", "phase": "action",
                 "status": "in_progress", "message": f"Committing patch to {path}...", "timestamp": ""
-            })
+            }, room=f"user:{owner_id}")
             
             res = await client.put(
                 f"{base_api}/contents/{path}", headers=headers,
@@ -88,7 +88,7 @@ async def create_github_pr(target_url: str, patch_content: str, incident_id: str
             await sio.emit("agent_event", {
                 "incident_id": incident_id, "agent": "System (Deployment)", "phase": "action",
                 "status": "in_progress", "message": "Opening Pull Request...", "timestamp": ""
-            })
+            }, room=f"user:{owner_id}")
             
             res = await client.post(
                 f"{base_api}/pulls", headers=headers,
@@ -119,7 +119,7 @@ async def create_github_pr(target_url: str, patch_content: str, incident_id: str
             await sio.emit("agent_event", {
                 "incident_id": incident_id, "agent": "System (Deployment)", "phase": "action",
                 "status": "completed", "message": success_msg, "timestamp": ""
-            })
+            }, room=f"user:{owner_id}")
             return success_msg
             
         except httpx.HTTPStatusError as e:
@@ -127,12 +127,12 @@ async def create_github_pr(target_url: str, patch_content: str, incident_id: str
             await sio.emit("agent_event", {
                 "incident_id": incident_id, "agent": "System (Deployment)", "phase": "action",
                 "status": "error", "message": msg, "timestamp": ""
-            })
+            }, room=f"user:{owner_id}")
             return msg
         except Exception as e:
             msg = f"Failed to create PR: {str(e)}"
             await sio.emit("agent_event", {
                 "incident_id": incident_id, "agent": "System (Deployment)", "phase": "action",
                 "status": "error", "message": msg, "timestamp": ""
-            })
+            }, room=f"user:{owner_id}")
             return msg

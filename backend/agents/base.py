@@ -23,8 +23,10 @@ class BaseAgent:
         self.system_prompt = system_prompt
         self.sio = sio
 
-    async def emit(self, incident_id: str, phase: str, status: str, message: str, findings: str = ""):
-        """Emit a real-time agent_event to all connected clients."""
+    async def emit(self, incident_id: str, phase: str, status: str, message: str, findings: str = "", owner_id: str = ""):
+        """Emit private progress only to the authenticated owner's room."""
+        if not owner_id:
+            return
         event = {
             "incident_id": incident_id,
             "agent": self.name,
@@ -34,7 +36,7 @@ class BaseAgent:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "findings": findings,
         }
-        await self.sio.emit("agent_event", event)
+        await self.sio.emit("agent_event", event, room=f"user:{owner_id}")
 
     def prune_context(self, context: dict) -> dict:
         """Limits the size of context blocks to prevent context window blowouts."""
@@ -57,6 +59,7 @@ class BaseAgent:
         start = time.perf_counter_ns()
         phase = context.get("phase", "investigation")
         incident_id = context.get("incident_id", "unknown")
+        owner_id = context.get("owner_id", "")
         
         api_key = context.get("api_key")
         if not api_key:
@@ -65,7 +68,7 @@ class BaseAgent:
         client = AsyncOpenAI(api_key=api_key, base_url=OPENROUTER_BASE_URL)
         pruned_context = self.prune_context(context)
 
-        await self.emit(incident_id, phase, "started", f"{self.name} is analysing the incident…")
+        await self.emit(incident_id, phase, "started", f"{self.name} is analysing the incident…", owner_id=owner_id)
 
         for attempt in range(retries):
             try:
@@ -90,18 +93,13 @@ class BaseAgent:
                     delta = chunk.choices[0].delta.content
                     if delta:
                         raw += delta
-                        await self.sio.emit("agent_token", {
-                            "incident_id": incident_id,
-                            "agent": self.name,
-                            "token": delta
-                        })
 
                 result = self._parse_json(raw)
                 elapsed_ms = (time.perf_counter_ns() - start) // 1_000_000
                 result["_agent"] = self.name
                 result["_duration_ms"] = elapsed_ms
 
-                await self.emit(incident_id, phase, "completed", f"{self.name} finished in {elapsed_ms}ms.", findings=raw)
+                await self.emit(incident_id, phase, "completed", f"{self.name} finished in {elapsed_ms}ms.", findings=raw, owner_id=owner_id)
                 return result
 
             except Exception as exc:
@@ -109,7 +107,7 @@ class BaseAgent:
                 if attempt == retries - 1:
                     elapsed_ms = (time.perf_counter_ns() - start) // 1_000_000
                     error_msg = f"{self.name} failed after retries: {exc}"
-                    await self.emit(incident_id, phase, "failed", error_msg)
+                    await self.emit(incident_id, phase, "failed", f"{self.name} failed after retries.", owner_id=owner_id)
                     return {"_agent": self.name, "_duration_ms": elapsed_ms, "error": str(exc)}
                 await asyncio.sleep(2 ** attempt)
 

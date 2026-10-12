@@ -30,6 +30,7 @@ class LogAnalyzerAgent(BaseAgent):
     async def run(self, context: dict, retries: int = 2) -> dict:
         phase = context.get("phase", "investigation")
         incident_id = context.get("incident_id", "unknown")
+        owner_id = context.get("owner_id", "")
         api_key = context.get("api_key")
         
         if not api_key:
@@ -37,7 +38,7 @@ class LogAnalyzerAgent(BaseAgent):
             
         client = AsyncOpenAI(api_key=api_key, base_url=OPENROUTER_BASE_URL)
         
-        await self.emit(incident_id, phase, "started", f"{self.name} is formulating a KQL query to fetch real logs...")
+        await self.emit(incident_id, phase, "started", f"{self.name} is formulating a KQL query to fetch real logs...", owner_id=owner_id)
         
         kql_prompt = (
             "You are a diagnostic tool. Generate ONLY a valid Kusto Query Language (KQL) "
@@ -59,14 +60,14 @@ class LogAnalyzerAgent(BaseAgent):
             if kql_query.endswith("```"):
                 kql_query = kql_query.rsplit("\n", 1)[0]
                 
-            await self.emit(incident_id, phase, "running", f"Executing Azure Log Analytics query:\n{kql_query}")
+            await self.emit(incident_id, phase, "running", "Executing Azure Log Analytics query.", owner_id=owner_id)
             
             logs_result = await query_azure_logs(kql_query)
             context["azure_logs"] = logs_result
             
-            await self.emit(incident_id, phase, "running", f"Fetched logs from Azure. Analyzing results...")
+            await self.emit(incident_id, phase, "running", "Fetched Azure logs; analyzing results.", owner_id=owner_id)
             
-        except Exception as e:
-            context["azure_logs_error"] = str(e)
+        except Exception:
+            context["azure_logs_error"] = "Azure log retrieval failed."
             
         return await super().run(context, retries)
