@@ -3,7 +3,7 @@ SwarmOps — FastAPI Entry Point
 Production multi-agent incident response system powered by OpenRouter LLMs.
 """
 
-from fastapi import FastAPI, HTTPException, Header, Request, Depends
+from fastapi import FastAPI, HTTPException, Header, Request, Depends, Query
 import os
 import asyncio
 from fastapi.staticfiles import StaticFiles
@@ -87,6 +87,15 @@ async def health_check():
         "llm_configured": bool(OPENROUTER_API_KEY),
     }
 
+@app.get("/ready", tags=["system"])
+async def readiness_check():
+    """Readiness probe verifies database connectivity without exposing details."""
+    try:
+        await db.health()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Database is not ready.") from exc
+    return {"status": "ready"}
+
 # ── Incident Endpoints ──
 
 @app.post("/api/v1/incident", response_model=IncidentReport, tags=["incidents"])
@@ -118,14 +127,18 @@ async def create_incident(
          raise HTTPException(status_code=429, detail="Too many concurrent investigations. Please try again later.")
 
 @app.get("/api/v1/incidents", tags=["incidents"])
-async def list_incidents(user: Principal = Depends(get_current_user)):
+async def list_incidents(
+    user: Principal = Depends(get_current_user),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+):
     """Returns all stored incidents from the persistent database."""
-    return db.get_all(owner_id=user.user_id)
+    return await db.get_all(owner_id=user.user_id, limit=limit, offset=offset)
 
 @app.get("/api/v1/incidents/{incident_id}", response_model=IncidentReport, tags=["incidents"])
 async def get_incident(incident_id: str, user: Principal = Depends(get_current_user)):
     """Returns a specific incident by ID."""
-    report = db.get(incident_id, owner_id=user.user_id)
+    report = await db.get(incident_id, owner_id=user.user_id)
     if report is None:
         raise HTTPException(status_code=404, detail=f"Incident {incident_id} not found")
     return report
@@ -139,7 +152,7 @@ async def handle_incident_action(
     payload: ActionRequest,
     user: Principal = Depends(get_current_user),
 ):
-    report = db.get(incident_id, owner_id=user.user_id)
+    report = await db.get(incident_id, owner_id=user.user_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Incident not found")
         

@@ -104,10 +104,10 @@ def test_cross_user_incident_read_and_listing_are_isolated(monkeypatch):
             "other": sample_report("other", "user-b"),
         }
 
-        def get_all(self, owner_id=None):
+        async def get_all(self, owner_id=None, limit=50, offset=0):
             return [r for r in self.incidents.values() if r.owner_id == owner_id]
 
-        def get(self, incident_id, owner_id=None):
+        async def get(self, incident_id, owner_id=None):
             item = self.incidents.get(incident_id)
             return item if item and item.owner_id == owner_id else None
 

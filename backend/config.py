@@ -19,6 +19,8 @@ GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", "")
 SUPABASE_URL: str = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_JWT_SECRET: str = os.getenv("SUPABASE_JWT_SECRET", "")
 SUPABASE_JWT_AUDIENCE: str = os.getenv("SUPABASE_JWT_AUDIENCE", "authenticated")
+DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+APP_ENV: str = os.getenv("APP_ENV", "development")
 
 # ── Azure Log Analytics ──
 AZURE_LOG_ANALYTICS_WORKSPACE_ID: str = os.getenv("AZURE_LOG_ANALYTICS_WORKSPACE_ID", "")

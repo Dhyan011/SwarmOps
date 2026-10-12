@@ -6,7 +6,7 @@ async def find_similar_incident(description: str, service: str, owner_id: str) -
     query = description.lower()
     
     # Very simple fuzzy search
-    incidents = db.get_all(owner_id=owner_id)
+    incidents = await db.get_all(owner_id=owner_id, limit=200, offset=0)
     best_match = None
     best_score = 0
     
