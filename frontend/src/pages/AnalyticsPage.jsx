@@ -237,7 +237,7 @@ export default function AnalyticsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {agentPerformance.map((agent, i) => (
+              {agentPerformance.map((agent) => (
                 <tr
                   key={agent.name}
                   className="hover:bg-white/[0.02] transition-colors"

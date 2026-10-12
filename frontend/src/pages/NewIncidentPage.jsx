@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HiArrowLeft, HiOutlineCodeBracket, HiOutlineServerStack } from "react-icons/hi2";
 import { createIncident } from "../services/api";
-import { useIncident } from "../context/IncidentContext";
+import { useIncident } from "../context/useIncident";
 
 function normalizeGithubRepo(rawUrl) {
   const url = new URL(rawUrl);

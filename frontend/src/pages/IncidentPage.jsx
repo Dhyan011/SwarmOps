@@ -9,10 +9,9 @@ import {
   HiOutlineShieldCheck,
 } from "react-icons/hi2";
 import CodeDiff from "../components/CodeDiff";
-import ConfidenceMeter from "../components/ConfidenceMeter";
 import StatusBadge from "../components/StatusBadge";
 import { getIncident, handleIncidentAction } from "../services/api";
-import { useIncident } from "../context/IncidentContext";
+import { useIncident } from "../context/useIncident";
 import { supabase } from "../services/supabase";
 
 const statusStyles = {
@@ -192,11 +191,6 @@ export default function IncidentPage() {
         <article className="rounded-lg border border-white/10 bg-[#0f151f] p-5">
           <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-sm font-semibold text-white">AI-generated hypothesis</h2><span className="text-xs text-slate-400">Not independently verified</span></div>
           <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-200">{incident.root_cause || "No root cause hypothesis was recorded."}</p>
-          <div className="mt-5 border-t border-white/10 pt-4">
-            <div className="flex items-center justify-between gap-3"><span className="text-xs font-medium uppercase tracking-wide text-slate-400">Model-estimated confidence</span><span className="text-sm font-semibold text-white">{Number.isFinite(incident.confidence) ? `${incident.confidence}%` : "Not recorded"}</span></div>
-            {Number.isFinite(incident.confidence) && incident.confidence > 0 && <div className="mt-2 max-w-sm"><ConfidenceMeter value={incident.confidence} /></div>}
-            <p className="mt-2 text-xs leading-5 text-slate-500">This is model output, not a calibrated probability or proof that the hypothesis is correct.</p>
-          </div>
           <div className="mt-5 border-t border-white/10 pt-4"><p className="text-xs font-medium uppercase tracking-wide text-slate-400">Recommended fix</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200">{incident.recommended_fix || "No fix description was recorded."}</p></div>
         </article>
       </section>

@@ -11,7 +11,7 @@ import {
 } from "react-icons/hi2";
 import IncidentCard from "../components/IncidentCard";
 import { getGitHubInstallations, getHealth, getIncidents } from "../services/api";
-import { useIncident } from "../context/IncidentContext";
+import { useIncident } from "../context/useIncident";
 
 const statusOptions = [
   ["all", "All statuses"],

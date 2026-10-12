@@ -1,38 +1,29 @@
 # SwarmOps 🐝
 
-**SwarmOps** is a multi-agent incident response and root-cause analysis platform. It investigates incidents, proposes code patches, and—after strict validation, deterministic policy checks, and an authorized human review—can create a pull request. It does not directly deploy generated code.
+**SwarmOps** is an evidence-first engineering workspace for investigating reported software failures and preparing reviewed code changes. It keeps supplied evidence, model hypotheses, deterministic checks, and verified GitHub outcomes distinct. It does not claim to replace monitoring, execute the user's test suite, merge a change, or deploy software.
 
 🚀 **Live Demo:** [https://swarmops-1.onrender.com](https://swarmops-1.onrender.com)
 
 ---
 
-## 🌟 Why SwarmOps is Extraordinarily Useful
+## Product promise
 
-In traditional software engineering, **Mean Time To Resolution (MTTR)** for critical production incidents can range from hours to days. When an alert fires, a human Site Reliability Engineer (SRE) or backend developer must manually:
-1. Dig through thousands of lines of logs in Datadog or ELK.
-2. Cross-reference those logs with CPU/Memory metrics in Prometheus or Grafana.
-3. Trace the request path using Jaeger or Zipkin.
-4. Clone the repository and hunt for the exact line of code causing the bug.
-5. Write a patch, test it, and submit a Pull Request.
-
-**SwarmOps reduces this entire process to minutes.** 
-
-By orchestrating a swarm of specialized, concurrent AI agents, SwarmOps acts exactly like a Senior SRE team. It parallelizes the investigation—simultaneously reading logs, metrics, traces, and code. It then synthesizes the findings into a single, high-confidence root cause and automatically writes the `git` patch to fix it. This is not just a chatbot; it is an autonomous incident remediation engine that dramatically cuts down downtime and engineering burnout.
+SwarmOps helps a developer or on-call responder move from a reported symptom and the evidence they can provide to a reviewable investigation record. It can retrieve bounded public GitHub context, ask an AI model to analyze the supplied material, and—where permissions and policy allow—prepare a human-reviewed pull request. Findings remain hypotheses until independently verified. Suggested tests are **not run** by the current product.
 
 ---
 
 ## 🧠 Concept & Architecture
 
-When a production system throws an alert or an incident is reported, SwarmOps automates the investigation using a **Sequential AI Swarm Pipeline**:
+When an incident is reported, SwarmOps runs a **sequential model-assisted workflow** over the supplied description, optional user evidence, and supported public repository context:
 
 1. **Triage Agent**: Initially classifies the incident and determines the optimal investigation strategy.
-2. **Log Analyzer Agent**: Scans application logs for exceptions, stack traces, and anomalies.
-3. **Metrics Agent**: Analyzes CPU, Memory, and application latency metrics.
-4. **Trace Agent**: Investigates distributed traces to find network bottlenecks or database deadlocks.
-5. **Security Agent**: Checks if the incident is a result of a vulnerability (e.g., prompt injection, IDOR) or malicious attack.
+2. **Log Analyzer Agent**: Analyzes available log text; this is not a live log-provider query unless a deployment explicitly configures one.
+3. **Metrics Agent**: Interprets supplied metrics/context; it does not currently query a connected metrics backend.
+4. **Trace Agent**: Interprets supplied trace context; it does not currently query a connected tracing backend.
+5. **Security Agent**: Provides model-assisted security analysis; it is not a deterministic vulnerability scanner.
 6. **Root Cause Agent**: Synthesizes all findings from the previous agents into a definitive root cause analysis.
-7. **Fix Generator Agent**: Writes the actual code to fix the bug (generates a `git` patch).
-8. **Validation Agent**: Ensures the proposed fix is logical, secure, and passes basic sanity checks.
+7. **Fix Generator Agent**: Proposes a patch; a proposal is not proof of a fix.
+8. **Validation Agent**: Returns a structured model verdict. Separate deterministic checks can reject unsafe patch patterns, but the workflow does not run tests or prove correctness.
 
 As agents work, they send progress events in **real time** over authenticated WebSockets. Raw model token streams and unrestricted chain-of-thought are not exposed.
 
@@ -51,7 +42,7 @@ graph TD
         UI[React Dashboard UI]:::frontend
         WS_Client[Socket.IO Client]:::frontend
         Reviewer[Human Security Reviewer]:::frontend
-        LocalStorage[(Browser localStorage)]:::storage
+        SessionStore[(Tab-scoped Auth Session)]:::storage
     end
 
     subgraph Server [FastAPI Backend Container]
@@ -84,7 +75,7 @@ graph TD
     UI -- "Supabase Auth session" --> API
     
     %% API Requests
-    UI -- "POST /incident (JWT + provider key)" --> API
+    UI -- "POST /incident (verified JWT)" --> API
     API -- "Stores Reports" --> DB
     
     %% WebSockets
@@ -114,7 +105,7 @@ SwarmOps is built with a meticulously designed architecture that balances high p
 1. **Flexible deployment**: The Dockerfile can serve the Vite/React UI and API from one container; the included Render blueprint instead deploys a backend web service and a separate static frontend.
 2. **Verified identity and tenant isolation**: Supabase access-token signatures, issuer, audience, and expiry are verified by the backend. Incident rows, database queries, and realtime events are scoped to the authenticated owner.
 3. **Fail-closed AI validation**: The validation agent must satisfy a strict JSON schema. A separate deterministic patch policy rejects secrets and protected paths; generated tests are marked as unexecuted and do not count as proof.
-4. **Human-controlled GitHub action**: A security reviewer or administrator can request a PR only through that user's linked GitHub App installation. The backend context-checks the patch and stores success only after GitHub returns a verified PR URL and number.
+4. **Human-controlled GitHub actions**: A reviewer or administrator can request a PR only through their linked GitHub App installation. Incident patches and contribution patches are policy-checked, and success is shown only after GitHub returns a verified link. Contribution scans are public-only, pinned to a commit, and never write until an explicit review action.
 5. **Bounded reliability controls**: Provider calls use limited retries and timeouts. Investigation admission has a configurable queue wait, concurrency cap, and end-to-end deadline; `/ready` checks database connectivity. The concurrency cap is per backend process.
 
 ---
@@ -129,6 +120,7 @@ Using SwarmOps is designed to be as seamless as possible:
 4. **Watch the Swarm**: Authenticated Socket.IO progress events are delivered to the user's private room; raw model token streams are not sent.
 5. **Review findings**: Treat model output as a hypothesis. Check the evidence, policy findings, proposed patch, and `tests_executed` state (currently false; generated tests have not been executed).
 6. **Request a PR**: Only a `security_reviewer` or `administrator` role in trusted Supabase `app_metadata.roles` can approve a policy-cleared proposal. SwarmOps creates a pull request, not a deployment; a PR does not prove that an incident is resolved.
+7. **Scan for an open-source contribution**: Open **Contributions**, enter a public `github.com/owner/repository` URL, inspect the pinned-commit finding and exact issue/PR text and diff, then explicitly confirm. A linked GitHub App needs repository metadata read, Issues write, Contents write, and Pull requests write. SwarmOps creates an issue and PR but does not merge, run CI, or claim tests passed. A failed second write is shown as partial; retry with the same reviewed payload.
 
 ---
 
@@ -138,6 +130,7 @@ SwarmOps is built with a **Privacy First** mindset:
 - **Verified account identity:** Supabase user IDs are used for ownership; incident records, audit events, and GitHub installation links are stored in PostgreSQL.
 - **Separate access:** Supabase establishes identity, while the GitHub App authorizes repository operations. GitHub App private keys and short-lived installation tokens remain on the backend. The browser uses tab-scoped Supabase session storage; retired browser model-key settings are cleared.
 - **Model processing:** Incident descriptions, code, and supplied evidence may be sent to the deployment-configured OpenRouter-compatible model provider. Operators must review the provider's data-handling terms; do not submit secrets or personal data unnecessarily.
+- **Contribution scans:** Only canonical public GitHub repositories are supported. Bounded source snapshots are pinned to a commit; common credential patterns and sensitive file paths are filtered before model analysis, but automated redaction is not a guarantee. The scan and generated proposal are persisted for the authenticated owner. External issue/PR text and code are public once confirmed.
 - **Production persistence:** Configure a PostgreSQL `DATABASE_URL` and run Alembic migrations. Incident and audit data are not stored in a JSON fallback.
 
 ---
@@ -195,7 +188,7 @@ To deploy on Render:
 1. Apply the Render Blueprint from `render.yaml`, or create the backend web service and static frontend separately.
 2. Configure the backend values `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_JWT_AUDIENCE`, `APP_STATE_SECRET`, and `OPENROUTER_API_KEY`. Point `PUBLIC_BASE_URL` and `CORS_ALLOWED_ORIGINS` at the frontend's public URL/origin.
 3. Configure frontend build values `VITE_API_URL` (the backend URL), `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY`.
-4. For GitHub PR support, configure `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, and `GITHUB_APP_PRIVATE_KEY`. Set the GitHub App setup URL to `https://<backend-host>/api/v1/github/installation/callback`; grant Metadata read, Contents write, and Pull requests write. Runtime tokens are further restricted to one repository and these required permissions.
+4. For GitHub PR and contribution support, configure `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, and `GITHUB_APP_PRIVATE_KEY`. Set the GitHub App setup URL to `https://<backend-host>/api/v1/github/installation/callback`; grant Metadata read, Issues write, Contents write, and Pull requests write. Runtime tokens are further restricted to one repository and to the permission subset needed by each operation. Existing installations may need their owner to approve the new Issues permission.
 5. Enable Google as a Supabase Auth provider and allow `https://<frontend-host>/auth/callback` as a redirect destination. GitHub App installation is configured separately and is not used for SwarmOps login.
 6. Apply schema changes with `cd backend && alembic upgrade head` before marking the backend ready.
 7. Capacity defaults are 3 concurrent investigations per process, a 5-second queue wait, and a 900-second execution deadline; tune with the matching `MAX_CONCURRENT_INVESTIGATIONS`, `INVESTIGATION_QUEUE_WAIT_SECONDS`, and `INVESTIGATION_TIMEOUT_SECONDS` environment variables.

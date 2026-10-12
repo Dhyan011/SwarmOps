@@ -1,6 +1,5 @@
-import { createContext, useState, useContext } from "react";
-
-const IncidentContext = createContext();
+import { useState } from "react";
+import { IncidentContext } from "./incident-context";
 
 export function IncidentProvider({ children }) {
   const [incidents, setIncidents] = useState([]);
@@ -21,8 +20,4 @@ export function IncidentProvider({ children }) {
       {children}
     </IncidentContext.Provider>
   );
-}
-
-export function useIncident() {
-  return useContext(IncidentContext);
 }

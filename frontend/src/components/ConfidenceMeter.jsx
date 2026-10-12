@@ -1,4 +1,3 @@
-import React from "react";
 import { HiOutlineInformationCircle } from "react-icons/hi2";
 
 export default function ConfidenceMeter({ value = 0 }) {

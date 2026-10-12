@@ -44,20 +44,21 @@ Classifications are based on source inspection and local tests. “Provider-unve
 | Capability | Classification | Evidence and boundary |
 | --- | --- | --- |
 | Supabase session guard and backend JWT/tenant checks | Implemented and verified | `frontend/src/App.jsx`, `frontend/src/services/supabase.js`, `backend/auth.py`, owner-scoped DB methods in `backend/db.py`; backend tests cover token/tenant behavior. Live OAuth configuration was not verified. |
-| Identity provider | Partial | GitHub Supabase OAuth is wired in `frontend/src/pages/LoginPage.jsx`; Google sign-in is not implemented. GitHub identity login is distinct from the GitHub App installation used for repository access. |
+| Identity provider | Partial / provider-unverified | Google sign-in and callback are wired in `frontend/src/pages/LoginPage.jsx`; the live Supabase provider and redirect configuration were not verified. GitHub identity login is distinct from the GitHub App installation used for repository access. |
 | Incident intake and persistence | Implemented and verified | FastAPI routes and async SQLAlchemy/Alembic persistence; PostgreSQL and migrations must be configured for deployment. |
 | Model-assisted orchestration | Implemented; provider-unverified | Orchestrator and OpenRouter-compatible agent client exist. Model behavior, provider credentials, latency, and cost were not live-tested. |
 | Metrics/traces/security/root-cause specialist work | Partial | Multiple roles are model prompts, not dedicated telemetry queries or deterministic scanners. Azure Logs has a provider-backed code path but deployment credentials are not provisioned by the current Render blueprint. |
-| Public/GitHub context fetching | Implemented and verified at unit level | Bounded HTTPS/public-DNS fetcher, GitHub archive/content readers, and SSRF tests exist. Fetch errors are not yet represented as a first-class evidence status; source revision provenance is not persisted. |
+| Public/GitHub context fetching | Implemented and verified at unit level | Bounded HTTPS/public-DNS fetcher, GitHub archive/content readers, and SSRF tests exist. Contribution scans persist an exact commit SHA and filter/redact common credentials; incident-context fetch failures and revisions are not yet a first-class evidence manifest. |
 | Strict output/policy/human approval gates | Implemented and verified in tests | Strict validation schema, deterministic patch policy, reviewer/admin gate, and explicit `tests_executed=false` exist. They do not prove that a change works. |
-| GitHub App installation and PR creation | Implemented; provider-unverified | Signed installation flow, owner-linked installation, repository-scoped tokens, patch application, and verified PR response are implemented and mocked in tests. No live provider mutation was performed. Partial provider-side failure cleanup and branch-protection preflight are incomplete. |
-| Issue creation, issue linking, draft PR preview | Not implemented | No issue routes/provider operation, persisted issue association, or preview/draft workflow exists. |
+| GitHub App installation and incident PR creation | Implemented; provider-unverified | Signed installation flow, owner-linked installation, repository-scoped tokens, patch application, and verified PR response are implemented and mocked in tests. No live provider mutation was performed. Branch-protection preflight is incomplete. |
+| Public open-source contribution scan and publication | Implemented; provider-unverified | Public-only pinned-commit snapshot, sensitive-path exclusion/common-secret redaction, AI proposal, context-applicable diff and deterministic policy gate, owner-scoped persistence, reviewer/admin gate, separate issue/PR token scopes, exact-payload preview, atomic claim, and retry-safe partial state. No live GitHub write was performed. Private repositories, semantic duplicate-issue search, automatic issue↔PR cross-linking, fork flow, CI/test execution, and branch-rule preflight remain unsupported. |
+| Incident-linked GitHub issue workflow | Not implemented | Contribution mode creates an issue and PR for the same scan, but incident actions still create only a PR and there is no general issue picker/association workflow. |
 | Generated test execution | Not implemented | Tests are generated as suggestions; they are never run. |
-| Google login | Not implemented | No Google provider call, callback handling, or deployment/provider documentation exists. |
+| Google login | Implemented in frontend; provider-unverified | Google sign-in and callback are wired through Supabase, while live Supabase provider credentials, redirect allow-list, and OAuth completion were not tested. |
 | Deployed realtime updates | Partial / unverified | Socket auth and owner rooms exist, but Docker starts `main:app` instead of `socket_app`; room state is in-process and no shared Socket.IO adapter exists. |
 | Historical memory | Not a supported capability | UI is hard-coded/offline; backend helper is local JSON, not in the normal flow, and not tenant-scoped. Keep it out of the active product until redesigned safely. |
-| Frontend operational states | Partial | Core pages exist, but several API errors are swallowed, metrics/provider badges are fabricated, and status/agent naming diverges from backend values. |
-| Frontend quality gates | Partial | Production build passes; lint has reported 17 errors. No frontend route/auth/action tests exist. |
+| Frontend operational states | Partial | Investigation and contribution pages expose loading/error/partial states. Legacy analytics/memory screens remain unlinked and are not routed. No frontend route/auth/action tests exist. |
+| Frontend quality gates | Local checks pass | Production build and ESLint pass. No frontend route/auth/action tests exist. |
 
 ## Core journeys
 
@@ -65,7 +66,7 @@ Classifications are based on source inspection and local tests. “Provider-unve
 
 Public home → explore a clearly labelled synthetic sample or sign in → establish SwarmOps identity → connect GitHub App separately if a repository action is needed → explain permissions and choose an authorized repository → create an investigation with any available manual evidence → inspect evidence/findings/uncertainty → review proposed diff and validation state → explicit reviewer approval → verify PR URL/status → track resolution separately.
 
-Google is the intended identity provider in the product blueprint; GitHub is a separate repository authorization. The current implementation only wires GitHub identity OAuth and requires a deliberate auth checkpoint before changing provider behavior. Google provider setup in Supabase remains a deployment prerequisite and must be marked unverified until tested.
+Google is the SwarmOps identity provider; GitHub App installation is separate repository authorization. Google provider setup, redirect allow-list, and end-to-end OAuth remain deployment prerequisites and provider-unverified until tested against the configured Supabase project.
 
 ### 2. Manual-evidence fallback
 
@@ -75,15 +76,15 @@ If GitHub or observability is unavailable, a user can submit symptoms and suppor
 
 Keep the incident record and completed evidence; show which provider/phase failed, what remains unknown, and a safe retry/recovery action. Do not translate a failed fetch or model call into a successful empty report.
 
-### 4. Open-source contribution mode (future until implemented)
+### 4. Open-source contribution mode (implemented, provider-unverified)
 
-Allow read-only analysis of a public repository, then prepare a clearly labelled issue draft or patch proposal. Creating an upstream issue, branch, commit, or PR requires the right GitHub App permission and explicit confirmation. If the user has no write access, offer a local/exportable patch or an authorized fork path; never imply public visibility grants write permission. Deduplicate against existing work, honor contribution instructions, pin the source revision, and record actual test results before proposing publication.
+Scan a canonical public GitHub repository read-only at a pinned commit. Filter sensitive files, redact common credential patterns, include contribution guidance where it fits the bounded source snapshot, and require a context-applicable deterministic-policy-cleared diff. A `security_reviewer` or `administrator` must inspect the source SHA, issue/PR text, and full patch and explicitly confirm publication. The GitHub App requests issue-only write scope for issue creation and a separate repository-scoped contents/PR token for PR creation. A PR may exist if the subsequent issue write fails; that partial outcome is persisted and can be retried with the same payload. Public visibility alone does not grant write access. Current limitations: public repositories only, no semantic duplicate-issue detection or automatic issue↔PR cross-link, no fork workflow, branch protection is left to GitHub, and tests are not run.
 
 ## Information architecture
 
 ### Public website
 
-- **Home:** concise product promise, sample workflow, actual boundaries, security/permissions, CTA to sign in.
+- **Home:** concise product promise, sample workflow, contribution mode, actual boundaries, security/permissions, CTA to sign in.
 - **How it works:** evidence → findings → proposed fix → validation → human-approved GitHub handoff.
 - **Security & permissions:** Supabase identity, GitHub App access, model-provider data flow, and human action boundary.
 - **GitHub repository:** link to the project itself.
@@ -162,12 +163,12 @@ At every point answer: **What is happening? What evidence exists? What did we le
 
 1. Google identity OAuth with real Supabase provider/redirect configuration and tests; GitHub App remains separate.
 2. Evidence manifest with source, timestamp/revision, retrieval result, truncation, and missing-data fields.
-3. GitHub repository selection, issues, issue association, explicit draft/preview, branch-protection preflight, idempotency and partial-failure recovery.
+3. Incident issue association and contribution issue↔PR cross-linking; semantic duplicate detection; branch-protection preflight and richer recovery for ambiguous provider timeouts.
 4. Isolated, bounded test execution with persisted logs/results; until then, generated tests remain suggestions only.
 5. One real observability provider selected by target users, then additional providers.
-6. Contribution mode for public repositories: read-only scan, duplicate-aware issue/patch draft, permission-aware fork/upstream workflow, explicit confirmation before publication.
+6. Extend contribution mode with private-repository authorization (only if users require it), a permission-aware fork workflow, and isolated test execution before publication.
 7. Tenant-scoped audit read/export, CI, deployment smoke tests, and shared Socket.IO adapter before multi-instance scaling.
 
 ## Audit limitations
 
-The audit used repository inspection plus local backend tests/frontend build and lint results. No live Supabase, OpenRouter, Azure, GitHub App mutation, or deployed Socket.IO flow was executed. Backend tests passed (73 tests in the audited run, with one collection warning), frontend build passed, and frontend lint failed with 17 errors. These results are source-level evidence, not proof of production-provider operation.
+The audit used repository inspection plus local backend tests, frontend production build/lint, and a production-dependency audit. The current local run passed **87 backend tests** (one pytest collection warning for the application class `TestGeneratorAgent`), the frontend production build, and frontend lint; `npm audit --omit=dev --audit-level=high` reported zero vulnerabilities. No live Supabase OAuth/JWKS, OpenRouter, Azure, GitHub App mutation, PostgreSQL deployment migration, or deployed Socket.IO flow was executed. These results are source-level/test-double evidence, not proof of production-provider operation.

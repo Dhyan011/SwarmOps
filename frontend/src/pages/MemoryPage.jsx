@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { HiOutlineLightBulb, HiOutlineCpuChip, HiOutlineHashtag } from "react-icons/hi2";
 
